@@ -20,6 +20,7 @@ enum OrderStatus {
   READY
   SERVED
   CANCELLED
+  PAID
 }
 
 enum ReservationStatus {

@@ -16,6 +16,7 @@ import {
     LogOut,
     ChefHat,
     Settings,
+    DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -27,6 +28,7 @@ const navItems = [
     { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN", "MANAGER", "STAFF"] },
     { title: "Menu", href: "/dashboard/menu", icon: UtensilsCrossed, roles: ["ADMIN", "MANAGER"] },
     { title: "Orders", href: "/dashboard/orders", icon: ShoppingBag, roles: ["ADMIN", "MANAGER", "STAFF"] },
+    { title: "Point of Sale", href: "/pos", icon: DollarSign, roles: ["ADMIN", "MANAGER", "STAFF"] },
     { title: "Reservations", href: "/dashboard/reservations", icon: CalendarDays, roles: ["ADMIN", "MANAGER", "STAFF"] },
     { title: "Inventory", href: "/dashboard/inventory", icon: Package, roles: ["ADMIN", "MANAGER"] },
 ];

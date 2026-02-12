@@ -4,66 +4,60 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Search,
+    Plus,
+    Star,
     Clock,
     Flame,
-    Star,
-    Tag,
-    ShoppingCart,
     Filter,
     Grid3X3,
     List,
+    Heart,
+    ShoppingCart,
+    Utensils,
+    CheckCircle,
+    XCircle,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatCurrency, calculateDiscountedPrice } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface MenuItem {
     id: string;
     name: string;
-    description: string | null;
-    image: string | null;
+    description?: string;
     price: number;
-    offerPrice: number | null;
-    costPrice: number | null;
-    sku: string | null;
-    preparationTime: number | null;
-    calories: number | null;
-    isAvailable: boolean;
-    isFeatured: boolean;
-    categoryId: string;
-    restaurantId: string;
-    createdAt: string;
-    category: {
+    offerPrice?: number;
+    category?: {
         id: string;
         name: string;
     };
-    discounts: {
-        id: string;
-        discountType: string;
-        discountValue: number;
-        startDate: string;
-        endDate: string;
-        isActive: boolean;
-    }[];
+    categoryId?: string;
+    imageUrl?: string;
+    image?: string;
+    isAvailable: boolean;
+    isFeatured: boolean;
+    preparationTime?: number;
+    calories?: number;
+    allergens?: string[];
+    spicyLevel?: number;
+    displayOrder: number;
 }
 
 interface Category {
     id: string;
     name: string;
+    description?: string;
     displayOrder: number;
     isActive: boolean;
 }
 
 const container = {
     hidden: { opacity: 0 },
-    show: {
-        opacity: 1,
-        transition: { staggerChildren: 0.05 },
-    },
+    show: { opacity: 1, transition: { staggerChildren: 0.05 } },
 };
 
 const item = {
@@ -91,6 +85,7 @@ export default function PublicMenuPage() {
             setCategories(data.categories || []);
         } catch (error) {
             console.error("Failed to fetch menu:", error);
+            toast.error("Failed to load menu");
         } finally {
             setLoading(false);
         }
@@ -166,9 +161,9 @@ export default function PublicMenuPage() {
                             variant="outline" 
                             onClick={() => window.location.href = "/#menu"} 
                             className="border-2 border-orange-500 text-orange-600 hover:bg-orange-50 px-8 py-3 text-lg rounded-full"
-                            >
-                                View Full Menu
-                            </Button>
+                        >
+                            View Full Menu
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -347,100 +342,115 @@ export default function PublicMenuPage() {
                                                         )}
                                                     </div>
 
-                                                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                                        {item.offerPrice ? (
-                                                            <>
-                                                                <span className="text-lg font-bold text-orange-600">
-                                                                    {formatCurrency(item.offerPrice)}
-                                                                </span>
-                                                                <span className="text-sm text-muted-foreground line-through">
+                                                    <div className="flex items-center justify-between mt-4">
+                                                        <div>
+                                                            {item.offerPrice ? (
+                                                                <>
+                                                                    <span className="text-lg font-bold text-orange-600">
+                                                                        {formatCurrency(item.offerPrice)}
+                                                                    </span>
+                                                                    <span className="text-sm text-muted-foreground line-through ml-2">
+                                                                        {formatCurrency(item.price)}
+                                                                    </span>
+                                                                </>
+                                                            ) : (
+                                                                <span className="text-lg font-bold text-foreground">
                                                                     {formatCurrency(item.price)}
                                                                 </span>
-                                                            </>
-                                                        ) : (
-                                                            <span className="text-lg font-bold text-foreground">
-                                                                {formatCurrency(item.price)}
-                                                            </span>
-                                                        )}
+                                                            )}
+                                                        </div>
+                                                        
+                                                        <div className="flex items-center gap-1">
+                                                            {item.isAvailable ? (
+                                                                <CheckCircle className="w-4 h-4 text-green-500" />
+                                                            ) : (
+                                                                <XCircle className="w-4 h-4 text-red-500" />
+                                                            )}
+                                                        </div>
                                                     </div>
-
-                                                    <Button 
-                                                        onClick={() => window.location.href = "/login"} 
-                                                        className="w-full mt-4 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700"
-                                                    >
-                                                        <ShoppingCart className="w-4 h-4 mr-2" />
-                                                        Order Now
-                                                    </Button>
                                                 </div>
                                             </CardContent>
                                         </Card>
                                     ) : (
-                                        <Card className="bg-card border hover:border-primary/20 hover:shadow-xl transition-all duration-300">
+                                        <Card className="bg-card border hover:border-primary/20 hover:shadow-lg transition-all duration-300">
                                             <CardContent className="p-6">
-                                                <div className="flex items-start justify-between gap-6">
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-4 mb-3">
-                                                            <div>
-                                                                <h3 className="font-semibold text-lg group-hover:text-orange-600 transition-colors">
-                                                                    {item.name}
-                                                                </h3>
-                                                                <p className="text-muted-foreground text-sm">
-                                                                    {item.category.name}
-                                                                </p>
-                                                            </div>
-                                                            
-                                                            {item.isFeatured && (
-                                                                <Badge className="bg-gradient-to-r from-orange-500 to-amber-600 text-white">
-                                                                    <Star className="w-3 h-3 mr-1" />
-                                                                    Featured
-                                                                </Badge>
-                                                            )}
-                                                        </div>
-
-                                                        <p className="text-muted-foreground mb-4 line-clamp-2">
-                                                            {item.description}
-                                                        </p>
-
-                                                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                                            {item.preparationTime && (
-                                                                <div className="flex items-center gap-2 bg-orange-100 dark:bg-orange-900 px-3 py-1 rounded-full">
-                                                                    <Clock className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                                                                    <span className="font-medium">{item.preparationTime} min</span>
-                                                                </div>
-                                                            )}
-                                                            {item.calories && (
-                                                                <div className="flex items-center gap-2 bg-green-100 dark:bg-green-900 px-3 py-1 rounded-full">
-                                                                    <Flame className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                                                    <span className="font-medium">{item.calories} cal</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="text-right">
-                                                        {item.offerPrice ? (
-                                                            <>
-                                                                <span className="text-lg font-bold text-orange-600">
-                                                                    {formatCurrency(item.offerPrice)}
-                                                                </span>
-                                                                <span className="text-sm text-muted-foreground line-through">
-                                                                    {formatCurrency(item.price)}
-                                                                </span>
-                                                            </>
+                                                <div className="flex gap-4">
+                                                    <div className="relative">
+                                                        {item.image ? (
+                                                            <img
+                                                                src={item.image}
+                                                                alt={item.name}
+                                                                className="w-24 h-24 rounded-lg object-cover"
+                                                            />
                                                         ) : (
-                                                            <span className="text-lg font-bold text-foreground">
-                                                                {formatCurrency(item.price)}
-                                                            </span>
+                                                            <div className="w-24 h-24 rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 dark:from-zinc-800 dark:to-zinc-700 flex items-center justify-center">
+                                                                <div className="text-2xl">🍽</div>
+                                                            </div>
+                                                        )}
+                                                        {item.isFeatured && (
+                                                            <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-orange-500 to-amber-600 text-white">
+                                                                <Star className="w-3 h-3" />
+                                                            </Badge>
                                                         )}
                                                     </div>
-
-                                                    <Button 
-                                                        onClick={() => window.location.href = "/login"} 
-                                                        className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700"
-                                                    >
-                                                        <ShoppingCart className="w-4 h-4 mr-2" />
-                                                        Order
-                                                    </Button>
+                                                    
+                                                    <div className="flex-1">
+                                                        <div className="flex items-start justify-between mb-2">
+                                                            <h3 className="font-bold text-lg text-foreground group-hover:text-orange-600 transition-colors">
+                                                                {item.name}
+                                                            </h3>
+                                                            <div className="flex items-center gap-1">
+                                                                {item.isAvailable ? (
+                                                                    <CheckCircle className="w-4 h-4 text-green-500" />
+                                                                ) : (
+                                                                    <XCircle className="w-4 h-4 text-red-500" />
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
+                                                            {item.description}
+                                                        </p>
+                                                        
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-3 text-sm">
+                                                                {item.preparationTime && (
+                                                                    <div className="flex items-center gap-1">
+                                                                        <Clock className="w-3 h-3 text-orange-600" />
+                                                                        <span>{item.preparationTime}m</span>
+                                                                    </div>
+                                                                )}
+                                                                {item.calories && (
+                                                                    <div className="flex items-center gap-1">
+                                                                        <Flame className="w-3 h-3 text-green-600" />
+                                                                        <span>{item.calories}cal</span>
+                                                                    </div>
+                                                                )}
+                                                                {item.category && (
+                                                                    <Badge variant="outline" className="text-xs">
+                                                                        {item.category.name}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                            
+                                                            <div>
+                                                                {item.offerPrice ? (
+                                                                    <>
+                                                                        <span className="text-lg font-bold text-orange-600">
+                                                                            {formatCurrency(item.offerPrice)}
+                                                                        </span>
+                                                                        <span className="text-sm text-muted-foreground line-through ml-2">
+                                                                            {formatCurrency(item.price)}
+                                                                        </span>
+                                                                    </>
+                                                                ) : (
+                                                                    <span className="text-lg font-bold text-foreground">
+                                                                        {formatCurrency(item.price)}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </CardContent>
                                         </Card>
