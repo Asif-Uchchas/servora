@@ -4,10 +4,11 @@ import { OrderStatus } from "@prisma/client";
 
 export async function PATCH(
     req: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id: orderId } = await params;
+        const params = await context.params;
+        const orderId = params.id;
 
         const { status } = await req.json();
 

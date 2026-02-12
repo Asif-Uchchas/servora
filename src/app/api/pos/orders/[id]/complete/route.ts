@@ -5,10 +5,11 @@ import { OrderStatus } from "@prisma/client";
 // POST - Complete order (mark as paid)
 export async function POST(
     req: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id: orderId } = await params;
+        const params = await context.params;
+        const orderId = params.id;
 
         const order = await db.order.update({
             where: { id: orderId },

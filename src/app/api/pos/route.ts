@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
             status: order.status,
             totalAmount: order.totalAmount,
             paymentMethod: "CASH", // Default for now
-            paymentStatus: order.status === "PAID" ? "PAID" : "PENDING",
+            paymentStatus: (order.status as string) === "PAID" ? "PAID" : "PENDING",
             subtotal: order.totalAmount * 0.9, // Approximate
             tax: order.totalAmount * 0.1, // Approximate
             tip: 0,
@@ -128,6 +128,7 @@ export async function POST(req: NextRequest) {
                     include: {
                         menuItem: {
                             select: {
+                                id: true,
                                 name: true,
                                 price: true,
                                 category: {
