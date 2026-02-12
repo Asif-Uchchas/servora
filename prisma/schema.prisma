@@ -1,0 +1,218 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+// ─── ENUMS ──────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  MANAGER
+  STAFF
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  PENDING
+  CANCELLED
+  COMPLETED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FLAT
+}
+
+enum TransactionType {
+  ADD
+  REMOVE
+  WASTE
+}
+
+// ─── MODELS ─────────────────────────────────────────────
+
+model Restaurant {
+  id        String   @id @default(cuid())
+  name      String
+  logo      String?
+  address   String?
+  phone     String?
+  email     String?
+  currency  String   @default("USD")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users              User[]
+  menuCategories     MenuCategory[]
+  menuItems          MenuItem[]
+  orders             Order[]
+  reservations       Reservation[]
+  inventoryItems     InventoryItem[]
+
+  @@map("restaurants")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role     @default(STAFF)
+  avatar       String?
+  restaurantId String   @map("restaurant_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("users")
+}
+
+model MenuCategory {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  restaurantId String   @map("restaurant_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  menuItems  MenuItem[]
+
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  image           String?
+  price           Float
+  offerPrice      Float?   @map("offer_price")
+  costPrice       Float?   @map("cost_price")
+  sku             String?
+  preparationTime Int?     @map("preparation_time") // in minutes
+  calories        Int?
+  isAvailable     Boolean  @default(true) @map("is_available")
+  isFeatured      Boolean  @default(false) @map("is_featured")
+  categoryId      String   @map("category_id")
+  restaurantId    String   @map("restaurant_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  category   MenuCategory      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  restaurant Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  discounts  MenuItemDiscount[]
+  orderItems OrderItem[]
+
+  @@map("menu_items")
+}
+
+model MenuItemDiscount {
+  id            String       @id @default(cuid())
+  menuItemId    String       @map("menu_item_id")
+  discountType  DiscountType @map("discount_type")
+  discountValue Float        @map("discount_value")
+  startDate     DateTime     @map("start_date")
+  endDate       DateTime     @map("end_date")
+  isActive      Boolean      @default(true) @map("is_active")
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@map("menu_item_discounts")
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  orderNumber  Int         @default(autoincrement()) @map("order_number")
+  restaurantId String      @map("restaurant_id")
+  tableNumber  String?     @map("table_number")
+  customerName String?     @map("customer_name")
+  status       OrderStatus @default(PENDING)
+  totalAmount  Float       @default(0) @map("total_amount")
+  notes        String?
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String @id @default(cuid())
+  orderId    String @map("order_id")
+  menuItemId String @map("menu_item_id")
+  quantity   Int    @default(1)
+  price      Float
+  notes      String?
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@map("order_items")
+}
+
+model Reservation {
+  id              String            @id @default(cuid())
+  restaurantId    String            @map("restaurant_id")
+  customerName    String            @map("customer_name")
+  phone           String?
+  email           String?
+  guests          Int
+  reservationTime DateTime          @map("reservation_time")
+  tableNumber     String?           @map("table_number")
+  status          ReservationStatus @default(PENDING)
+  notes           String?
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("reservations")
+}
+
+model InventoryItem {
+  id              String   @id @default(cuid())
+  name            String
+  quantity        Float    @default(0)
+  unit            String   @default("pcs")
+  minimumQuantity Float    @default(0) @map("minimum_quantity")
+  costPerUnit     Float    @default(0) @map("cost_per_unit")
+  restaurantId    String   @map("restaurant_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  restaurant   Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  transactions InventoryTransaction[]
+
+  @@map("inventory_items")
+}
+
+model InventoryTransaction {
+  id              String          @id @default(cuid())
+  inventoryItemId String          @map("inventory_item_id")
+  type            TransactionType
+  quantity        Float
+  notes           String?
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@map("inventory_transactions")
+}
