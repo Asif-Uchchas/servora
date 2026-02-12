@@ -7,11 +7,11 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     return (
-        <div className="min-h-screen bg-zinc-950">
+        <div className="min-h-screen bg-background">
             <Sidebar />
             <div className="lg:pl-[280px] transition-all duration-300">
                 <TopBar />
-                <main className="p-6">
+                <main className="p-6 animate-in fade-in-50 duration-500">
                     {children}
                 </main>
             </div>

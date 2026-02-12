@@ -24,11 +24,11 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const navItems = [
-    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { title: "Menu", href: "/dashboard/menu", icon: UtensilsCrossed },
-    { title: "Orders", href: "/dashboard/orders", icon: ShoppingBag },
-    { title: "Reservations", href: "/dashboard/reservations", icon: CalendarDays },
-    { title: "Inventory", href: "/dashboard/inventory", icon: Package },
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN", "MANAGER", "STAFF"] },
+    { title: "Menu", href: "/dashboard/menu", icon: UtensilsCrossed, roles: ["ADMIN", "MANAGER"] },
+    { title: "Orders", href: "/dashboard/orders", icon: ShoppingBag, roles: ["ADMIN", "MANAGER", "STAFF"] },
+    { title: "Reservations", href: "/dashboard/reservations", icon: CalendarDays, roles: ["ADMIN", "MANAGER", "STAFF"] },
+    { title: "Inventory", href: "/dashboard/inventory", icon: Package, roles: ["ADMIN", "MANAGER"] },
 ];
 
 const bottomNavItems = [
@@ -50,10 +50,10 @@ export function Sidebar() {
         <motion.aside
             animate={{ width: collapsed ? 80 : 280 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed left-0 top-0 bottom-0 z-40 flex flex-col bg-zinc-950 border-r border-zinc-800/50"
+            className="fixed left-0 top-0 bottom-0 z-40 flex flex-col bg-card border-r"
         >
             {/* Logo */}
-            <div className="flex items-center h-16 px-4 border-b border-zinc-800/50">
+            <div className="flex items-center h-16 px-4 border-b">
                 <Link href="/dashboard" className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-orange-500/10">
                         <ChefHat className="w-5 h-5 text-white" />
@@ -64,7 +64,7 @@ export function Sidebar() {
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="text-xl font-bold text-white tracking-tight"
+                                className="text-xl font-bold tracking-tight"
                             >
                                 Servora
                             </motion.span>
@@ -77,7 +77,7 @@ export function Sidebar() {
             <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
                 <div className={cn("mb-3", collapsed ? "px-0" : "px-3")}>
                     {!collapsed && (
-                        <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-600">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                             Main Menu
                         </span>
                     )}
@@ -85,6 +85,11 @@ export function Sidebar() {
 
                 {navItems.map((item) => {
                     const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                    const userRole = session?.user?.role || "STAFF";
+                    const hasAccess = !item.roles || item.roles.includes(userRole);
+                    
+                    if (!hasAccess) return null;
+                    
                     const Icon = item.icon;
 
                     const linkContent = (
@@ -95,7 +100,7 @@ export function Sidebar() {
                                 "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
                                 isActive
                                     ? "bg-gradient-to-r from-orange-500/10 to-amber-500/10 text-orange-400 shadow-sm"
-                                    : "text-zinc-400 hover:text-white hover:bg-zinc-800/50",
+                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover-lift",
                                 collapsed && "justify-center px-0"
                             )}
                         >
@@ -104,7 +109,7 @@ export function Sidebar() {
                                     "flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-200 flex-shrink-0",
                                     isActive
                                         ? "bg-orange-500/10 text-orange-400"
-                                        : "text-zinc-500 group-hover:text-white group-hover:bg-zinc-800"
+                                        : "text-muted-foreground group-hover:text-foreground group-hover:bg-muted"
                                 )}
                             >
                                 <Icon className="w-5 h-5" />
@@ -130,7 +135,7 @@ export function Sidebar() {
                         return (
                             <Tooltip key={item.href} delayDuration={0}>
                                 <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-                                <TooltipContent side="right" className="bg-zinc-800 text-white border-zinc-700">
+                                <TooltipContent side="right">
                                     {item.title}
                                 </TooltipContent>
                             </Tooltip>
@@ -143,7 +148,7 @@ export function Sidebar() {
 
             {/* Bottom Section */}
             <div className="px-3 pb-4 space-y-2">
-                <Separator className="bg-zinc-800/50 mb-3" />
+                <Separator className="mb-3" />
 
                 {/* Bottom nav items */}
                 {bottomNavItems.map((item) => {
@@ -153,11 +158,11 @@ export function Sidebar() {
                             key={item.href}
                             href={item.href}
                             className={cn(
-                                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/50 transition-all duration-200",
+                                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200 hover-lift",
                                 collapsed && "justify-center px-0"
                             )}
                         >
-                            <div className="flex items-center justify-center w-9 h-9 rounded-lg text-zinc-500 flex-shrink-0">
+                            <div className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground flex-shrink-0">
                                 <Icon className="w-5 h-5" />
                             </div>
                             {!collapsed && <span>{item.title}</span>}
@@ -167,7 +172,7 @@ export function Sidebar() {
 
                 {/* User Profile */}
                 <div className={cn(
-                    "flex items-center gap-3 p-3 rounded-xl bg-zinc-900/50 border border-zinc-800/50",
+                    "flex items-center gap-3 p-3 rounded-xl bg-muted/30 border",
                     collapsed && "justify-center p-2"
                 )}>
                     <Avatar className="h-9 w-9 flex-shrink-0">
@@ -177,10 +182,10 @@ export function Sidebar() {
                     </Avatar>
                     {!collapsed && (
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">
+                            <p className="text-sm font-medium truncate">
                                 {session?.user?.name || "User"}
                             </p>
-                            <p className="text-xs text-zinc-500 truncate">
+                            <p className="text-xs text-muted-foreground truncate">
                                 {(session?.user as any)?.role || "Staff"}
                             </p>
                         </div>
@@ -190,7 +195,7 @@ export function Sidebar() {
                             variant="ghost"
                             size="icon"
                             onClick={() => signOut({ callbackUrl: "/login" })}
-                            className="h-8 w-8 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 flex-shrink-0"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
                         >
                             <LogOut className="w-4 h-4" />
                         </Button>
@@ -202,7 +207,7 @@ export function Sidebar() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setCollapsed(!collapsed)}
-                    className="w-full h-9 text-zinc-500 hover:text-white hover:bg-zinc-800/50"
+                    className="w-full h-9 text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 >
                     {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                     {!collapsed && <span className="ml-2 text-xs">Collapse</span>}

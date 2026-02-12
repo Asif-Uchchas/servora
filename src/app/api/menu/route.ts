@@ -6,6 +6,7 @@ export async function GET(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
         const restaurantId = searchParams.get("restaurantId");
+        const isPublic = searchParams.get("public") === "true";
 
         if (!restaurantId) {
             // Get the first restaurant
@@ -57,7 +58,31 @@ export async function GET(req: NextRequest) {
             }),
         ]);
 
-        return NextResponse.json({ categories, menuItems, restaurantId });
+            const publicMenuItems = isPublic 
+                ? menuItems.map(item => ({
+                    ...item,
+                    // Only show public-safe data
+                    id: item.id,
+                    name: item.name,
+                    description: item.description,
+                    image: item.image,
+                    price: item.price,
+                    offerPrice: item.offerPrice,
+                    preparationTime: item.preparationTime,
+                    calories: item.calories,
+                    isAvailable: item.isAvailable,
+                    isFeatured: item.isFeatured,
+                    categoryId: item.categoryId,
+                    category: item.category,
+                    discounts: item.discounts,
+                }))
+                : menuItems;
+
+            return NextResponse.json({ 
+                categories: isPublic ? categories.filter(c => c.isActive) : categories, 
+                menuItems: publicMenuItems, 
+                restaurantId 
+            });
     } catch (error) {
         console.error("Menu GET error:", error);
         return NextResponse.json({ error: "Failed to fetch menu data" }, { status: 500 });

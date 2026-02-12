@@ -75,16 +75,16 @@ function KpiCard({
 
     return (
         <motion.div variants={item}>
-            <Card className="bg-zinc-900/50 border-zinc-800/50 hover:border-zinc-700/50 transition-all duration-300 overflow-hidden group">
+            <Card className="bg-card/50 hover:border-primary/20 transition-all duration-300 overflow-hidden group hover-lift">
                 <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                         <div className="flex-1">
-                            <p className="text-sm text-zinc-400 font-medium">{title}</p>
-                            <p className="text-3xl font-bold text-white mt-2 tracking-tight">{value}</p>
+                            <p className="text-sm text-muted-foreground font-medium">{title}</p>
+                            <p className="text-3xl font-bold mt-2 tracking-tight">{value}</p>
                             {trend && trendValue && (
                                 <div className="flex items-center gap-1.5 mt-3">
                                     <div
-                                        className={`flex items-center gap-0.5 text-xs font-medium ${trend === "up" ? "text-emerald-400" : "text-red-400"
+                                        className={`flex items-center gap-0.5 text-xs font-medium $                                        {trend === "up" ? "text-emerald-500" : "text-destructive"
                                             }`}
                                     >
                                         {trend === "up" ? (
@@ -94,7 +94,7 @@ function KpiCard({
                                         )}
                                         {trendValue}
                                     </div>
-                                    <span className="text-xs text-zinc-500">vs last week</span>
+                                    <span className="text-xs text-muted-foreground">vs last week</span>
                                 </div>
                             )}
                         </div>
@@ -113,10 +113,10 @@ function KpiCard({
 function CustomTooltip({ active, payload, label }: any) {
     if (!active || !payload) return null;
     return (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 shadow-lg">
-            <p className="text-xs text-zinc-400 mb-1">{label}</p>
+        <div className="bg-popover border rounded-xl p-3 shadow-lg">
+            <p className="text-xs text-muted-foreground mb-1">{label}</p>
             {payload.map((entry: any, index: number) => (
-                <p key={index} className="text-sm font-medium text-white">
+                <p key={index} className="text-sm font-medium">
                     {entry.name === "revenue" ? formatCurrency(entry.value) : `${entry.value} orders`}
                 </p>
             ))}
@@ -142,17 +142,17 @@ export default function DashboardPage() {
         return (
             <div className="space-y-6">
                 <div>
-                    <Skeleton className="h-8 w-48 bg-zinc-800" />
-                    <Skeleton className="h-4 w-64 bg-zinc-800 mt-2" />
+                    <Skeleton className="h-8 w-48" />
+                    <Skeleton className="h-4 w-64 mt-2" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {[...Array(4)].map((_, i) => (
-                        <Skeleton key={i} className="h-36 bg-zinc-800/50 rounded-xl" />
+                        <Skeleton key={i} className="h-36 rounded-xl" />
                     ))}
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <Skeleton className="h-80 bg-zinc-800/50 rounded-xl lg:col-span-2" />
-                    <Skeleton className="h-80 bg-zinc-800/50 rounded-xl" />
+                    <Skeleton className="h-80 rounded-xl lg:col-span-2" />
+                    <Skeleton className="h-80 rounded-xl" />
                 </div>
             </div>
         );
@@ -162,8 +162,8 @@ export default function DashboardPage() {
         <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
             {/* Header */}
             <motion.div variants={item}>
-                <h1 className="text-2xl font-bold text-white">Dashboard Overview</h1>
-                <p className="text-zinc-400 mt-1">Welcome back! Here&apos;s what&apos;s happening today.</p>
+                <h1 className="text-2xl font-bold">Dashboard Overview</h1>
+                <p className="text-muted-foreground mt-1">Welcome back! Here&apos;s what&apos;s happening today.</p>
             </motion.div>
 
             {/* KPI Cards */}
@@ -202,16 +202,16 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Revenue Chart */}
                 <motion.div variants={item} className="lg:col-span-2">
-                    <Card className="bg-zinc-900/50 border-zinc-800/50">
+                    <Card className="bg-card/50 border hover-lift">
                         <CardHeader className="pb-2">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-base font-semibold text-white">Revenue Overview</CardTitle>
-                                <div className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 rounded-full px-2.5 py-1">
+                                <CardTitle className="text-base font-semibold">Revenue Overview</CardTitle>
+                                <div className="flex items-center gap-1.5 text-xs text-emerald-500 bg-emerald-500/10 rounded-full px-2.5 py-1">
                                     <TrendingUp className="w-3.5 h-3.5" />
                                     <span className="font-medium">+12.5%</span>
                                 </div>
                             </div>
-                            <p className="text-xs text-zinc-500">Last 7 days performance</p>
+                            <p className="text-xs text-muted-foreground">Last 7 days performance</p>
                         </CardHeader>
                         <CardContent>
                             <ResponsiveContainer width="100%" height={280}>
@@ -222,7 +222,7 @@ export default function DashboardPage() {
                                             <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
                                         </linearGradient>
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                                     <XAxis
                                         dataKey="date"
                                         axisLine={false}
