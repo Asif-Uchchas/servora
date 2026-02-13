@@ -60,17 +60,24 @@ function KpiCard({
     color: string;
 }) {
     const colorMap: Record<string, string> = {
-        orange: "from-orange-500 to-amber-500",
+        gold: "from-primary to-[#B8962E]",
         blue: "from-blue-500 to-cyan-500",
         green: "from-emerald-500 to-green-500",
         red: "from-red-500 to-rose-500",
     };
 
     const bgColorMap: Record<string, string> = {
-        orange: "bg-orange-500/10",
+        gold: "bg-primary/10",
         blue: "bg-blue-500/10",
         green: "bg-emerald-500/10",
         red: "bg-red-500/10",
+    };
+
+    const iconColorMap: Record<string, string> = {
+        gold: "#D4AF37",
+        blue: "#3b82f6",
+        green: "#10b981",
+        red: "#ef4444",
     };
 
     return (
@@ -84,8 +91,9 @@ function KpiCard({
                             {trend && trendValue && (
                                 <div className="flex items-center gap-1.5 mt-3">
                                     <div
-                                        className={`flex items-center gap-0.5 text-xs font-medium $                                        {trend === "up" ? "text-emerald-500" : "text-destructive"
-                                            }`}
+                                        className={`flex items-center gap-0.5 text-xs font-medium ${
+                                            trend === "up" ? "text-green-500" : "text-destructive"
+                                        }`}
                                     >
                                         {trend === "up" ? (
                                             <ArrowUpRight className="w-3.5 h-3.5" />
@@ -101,7 +109,7 @@ function KpiCard({
                         <div
                             className={`w-12 h-12 rounded-2xl ${bgColorMap[color]} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}
                         >
-                            <Icon className={`w-6 h-6 bg-gradient-to-br ${colorMap[color]} bg-clip-text`} style={{ color: color === "orange" ? "#f97316" : color === "blue" ? "#3b82f6" : color === "green" ? "#10b981" : "#ef4444" }} />
+                            <Icon className="w-6 h-6" style={{ color: iconColorMap[color] }} />
                         </div>
                     </div>
                 </CardContent>
@@ -174,7 +182,7 @@ export default function DashboardPage() {
                     icon={DollarSign}
                     trend="up"
                     trendValue="12.5%"
-                    color="orange"
+                    color="gold"
                 />
                 <KpiCard
                     title="Orders Today"
@@ -206,7 +214,7 @@ export default function DashboardPage() {
                         <CardHeader className="pb-2">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-base font-semibold">Revenue Overview</CardTitle>
-                                <div className="flex items-center gap-1.5 text-xs text-emerald-500 bg-emerald-500/10 rounded-full px-2.5 py-1">
+                                <div className="flex items-center gap-1.5 text-xs text-green-500 bg-green-500/10 rounded-full px-2.5 py-1">
                                     <TrendingUp className="w-3.5 h-3.5" />
                                     <span className="font-medium">+12.5%</span>
                                 </div>
@@ -218,8 +226,8 @@ export default function DashboardPage() {
                                 <AreaChart data={stats?.revenueData || []}>
                                     <defs>
                                         <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="#f97316" stopOpacity={0.3} />
-                                            <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
+                                            <stop offset="0%" stopColor="#D4AF37" stopOpacity={0.3} />
+                                            <stop offset="100%" stopColor="#D4AF37" stopOpacity={0} />
                                         </linearGradient>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -227,19 +235,19 @@ export default function DashboardPage() {
                                         dataKey="date"
                                         axisLine={false}
                                         tickLine={false}
-                                        tick={{ fill: "#71717a", fontSize: 12 }}
+                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
                                     />
                                     <YAxis
                                         axisLine={false}
                                         tickLine={false}
-                                        tick={{ fill: "#71717a", fontSize: 12 }}
+                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
                                         tickFormatter={(v) => `$${v}`}
                                     />
                                     <Tooltip content={<CustomTooltip />} />
                                     <Area
                                         type="monotone"
                                         dataKey="revenue"
-                                        stroke="#f97316"
+                                        stroke="#D4AF37"
                                         strokeWidth={2.5}
                                         fill="url(#revenueGradient)"
                                     />
@@ -251,28 +259,28 @@ export default function DashboardPage() {
 
                 {/* Orders Chart */}
                 <motion.div variants={item}>
-                    <Card className="bg-zinc-900/50 border-zinc-800/50 h-full">
+                    <Card className="bg-card/50 border h-full">
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-base font-semibold text-white">Orders This Week</CardTitle>
-                            <p className="text-xs text-zinc-500">Daily order count</p>
+                            <CardTitle className="text-base font-semibold">Orders This Week</CardTitle>
+                            <p className="text-xs text-muted-foreground">Daily order count</p>
                         </CardHeader>
                         <CardContent>
                             <ResponsiveContainer width="100%" height={280}>
                                 <BarChart data={stats?.revenueData || []}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                                     <XAxis
                                         dataKey="date"
                                         axisLine={false}
                                         tickLine={false}
-                                        tick={{ fill: "#71717a", fontSize: 12 }}
+                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
                                     />
                                     <YAxis
                                         axisLine={false}
                                         tickLine={false}
-                                        tick={{ fill: "#71717a", fontSize: 12 }}
+                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
                                     />
                                     <Tooltip content={<CustomTooltip />} />
-                                    <Bar dataKey="orders" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                                    <Bar dataKey="orders" fill="#D4AF37" radius={[6, 6, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -284,10 +292,10 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Popular Items */}
                 <motion.div variants={item} className="lg:col-span-1">
-                    <Card className="bg-zinc-900/50 border-zinc-800/50">
+                    <Card className="bg-card/50 border h-full">
                         <CardHeader>
-                            <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
-                                <Star className="w-4 h-4 text-amber-400" />
+                            <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                <Star className="w-4 h-4 text-primary" />
                                 Popular Items
                             </CardTitle>
                         </CardHeader>
@@ -295,22 +303,22 @@ export default function DashboardPage() {
                             {(stats?.popularItems || []).map((menuItem, index) => (
                                 <div
                                     key={menuItem.id}
-                                    className="flex items-center gap-3 p-3 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
+                                    className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
                                 >
-                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500/20 to-amber-500/20 flex items-center justify-center text-sm font-bold text-orange-400">
+                                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
                                         {index + 1}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-white truncate">{menuItem.name}</p>
-                                        <p className="text-xs text-zinc-500">{menuItem.totalOrders} orders</p>
+                                        <p className="text-sm font-medium truncate">{menuItem.name}</p>
+                                        <p className="text-xs text-muted-foreground">{menuItem.totalOrders} orders</p>
                                     </div>
-                                    <p className="text-sm font-semibold text-white">
+                                    <p className="text-sm font-semibold">
                                         {formatCurrency(menuItem.revenue)}
                                     </p>
                                 </div>
                             ))}
                             {(!stats?.popularItems || stats.popularItems.length === 0) && (
-                                <p className="text-sm text-zinc-500 text-center py-4">No data yet</p>
+                                <p className="text-sm text-muted-foreground text-center py-4">No data yet</p>
                             )}
                         </CardContent>
                     </Card>
@@ -318,9 +326,9 @@ export default function DashboardPage() {
 
                 {/* Recent Orders */}
                 <motion.div variants={item} className="lg:col-span-1">
-                    <Card className="bg-zinc-900/50 border-zinc-800/50">
+                    <Card className="bg-card/50 border h-full">
                         <CardHeader>
-                            <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
+                            <CardTitle className="text-base font-semibold flex items-center gap-2">
                                 <Clock className="w-4 h-4 text-blue-400" />
                                 Recent Orders
                             </CardTitle>
@@ -329,19 +337,19 @@ export default function DashboardPage() {
                             {(stats?.recentOrders || []).map((order) => (
                                 <div
                                     key={order.id}
-                                    className="flex items-center gap-3 p-3 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
+                                    className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
                                 >
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-white">
+                                        <p className="text-sm font-medium">
                                             #{order.orderNumber}
                                             {order.customerName && ` • ${order.customerName}`}
                                         </p>
-                                        <p className="text-xs text-zinc-500">
+                                        <p className="text-xs text-muted-foreground">
                                             Table {order.tableNumber || "N/A"} • {order.orderItems.length} items
                                         </p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-sm font-semibold text-white">
+                                        <p className="text-sm font-semibold">
                                             {formatCurrency(order.totalAmount)}
                                         </p>
                                         <Badge variant="outline" className={`text-[10px] ${getStatusColor(order.status)}`}>
@@ -351,7 +359,7 @@ export default function DashboardPage() {
                                 </div>
                             ))}
                             {(!stats?.recentOrders || stats.recentOrders.length === 0) && (
-                                <p className="text-sm text-zinc-500 text-center py-4">No orders yet</p>
+                                <p className="text-sm text-muted-foreground text-center py-4">No orders yet</p>
                             )}
                         </CardContent>
                     </Card>
@@ -359,9 +367,9 @@ export default function DashboardPage() {
 
                 {/* Low Stock Alerts */}
                 <motion.div variants={item} className="lg:col-span-1">
-                    <Card className="bg-zinc-900/50 border-zinc-800/50">
+                    <Card className="bg-card/50 border h-full">
                         <CardHeader>
-                            <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
+                            <CardTitle className="text-base font-semibold flex items-center gap-2">
                                 <Package className="w-4 h-4 text-red-400" />
                                 Low Stock Alerts
                             </CardTitle>
@@ -376,7 +384,7 @@ export default function DashboardPage() {
                                         <AlertTriangle className="w-4 h-4 text-red-400" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-white truncate">{stockItem.name}</p>
+                                        <p className="text-sm font-medium truncate">{stockItem.name}</p>
                                         <p className="text-xs text-red-400">
                                             {stockItem.quantity} {stockItem.unit} left (min: {stockItem.minimumQuantity})
                                         </p>
@@ -385,10 +393,10 @@ export default function DashboardPage() {
                             ))}
                             {(!stats?.lowStockAlerts || stats.lowStockAlerts.length === 0) && (
                                 <div className="text-center py-4">
-                                    <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-2">
-                                        <Package className="w-5 h-5 text-emerald-400" />
+                                    <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-2">
+                                        <Package className="w-5 h-5 text-green-400" />
                                     </div>
-                                    <p className="text-sm text-zinc-500">All stock levels OK</p>
+                                    <p className="text-sm text-muted-foreground">All stock levels OK</p>
                                 </div>
                             )}
                         </CardContent>

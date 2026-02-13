@@ -57,7 +57,7 @@ export function Sidebar() {
             {/* Logo */}
             <div className="flex items-center h-16 px-4 border-b">
                 <Link href="/dashboard" className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-orange-500/10">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-[#B8962E] flex items-center justify-center flex-shrink-0 shadow-lg">
                         <ChefHat className="w-5 h-5 text-white" />
                     </div>
                     <AnimatePresence>
@@ -101,7 +101,7 @@ export function Sidebar() {
                             className={cn(
                                 "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
                                 isActive
-                                    ? "bg-gradient-to-r from-orange-500/10 to-amber-500/10 text-orange-400 shadow-sm"
+                                    ? "bg-primary/10 text-primary shadow-sm"
                                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover-lift",
                                 collapsed && "justify-center px-0"
                             )}
@@ -110,7 +110,7 @@ export function Sidebar() {
                                 className={cn(
                                     "flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-200 flex-shrink-0",
                                     isActive
-                                        ? "bg-orange-500/10 text-orange-400"
+                                        ? "bg-primary/10 text-primary"
                                         : "text-muted-foreground group-hover:text-foreground group-hover:bg-muted"
                                 )}
                             >
@@ -128,7 +128,7 @@ export function Sidebar() {
                                 )}
                             </AnimatePresence>
                             {isActive && !collapsed && (
-                                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-orange-400" />
+                                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
                             )}
                         </Link>
                     );
@@ -178,7 +178,7 @@ export function Sidebar() {
                     collapsed && "justify-center p-2"
                 )}>
                     <Avatar className="h-9 w-9 flex-shrink-0">
-                        <AvatarFallback className="bg-gradient-to-br from-orange-500 to-amber-600 text-white text-xs font-bold">
+                        <AvatarFallback className="bg-gradient-to-br from-primary to-[#B8962E] text-white text-xs font-bold">
                             {userInitials}
                         </AvatarFallback>
                     </Avatar>

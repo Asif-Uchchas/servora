@@ -128,7 +128,7 @@ export default function PublicMenuPage() {
     return (
         <div className="min-h-screen bg-background">
             {/* Hero Section */}
-            <div className="relative bg-gradient-to-br from-orange-50 to-amber-50 dark:from-zinc-900 dark:to-zinc-800 py-16 px-6">
+            <div className="relative bg-gradient-to-br from-[#FAF7F2] to-[#F0EBE3] dark:from-zinc-900 dark:to-zinc-800 py-16 px-6">
                 <div className="max-w-7xl mx-auto text-center">
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -152,16 +152,16 @@ export default function PublicMenuPage() {
                         >
                             <Button 
                                 onClick={() => window.location.href = "/login"} 
-                                className="bg-gradient-to-r from-orange-500 to-amber-600 text-white hover:from-orange-600 hover:to-amber-700 px-8 py-3 text-lg rounded-full"
+                                className="bg-primary text-primary-foreground hover:bg-[#E6C15A] px-8 py-3 text-lg rounded-full font-semibold transition-all duration-300"
                             >
                                 Order Now
                             </Button>
                         </motion.div>
-                        <Button 
-                            variant="outline" 
-                            onClick={() => window.location.href = "/#menu"} 
-                            className="border-2 border-orange-500 text-orange-600 hover:bg-orange-50 px-8 py-3 text-lg rounded-full"
-                        >
+                            <Button 
+                                variant="outline" 
+                                onClick={() => window.location.href = "/#menu"} 
+                                className="border-2 border-primary text-primary hover:bg-primary/10 px-8 py-3 text-lg rounded-full font-semibold"
+                            >
                             View Full Menu
                         </Button>
                     </div>
@@ -171,12 +171,12 @@ export default function PublicMenuPage() {
             {/* Menu Section */}
             <div id="menu" className="px-6 py-16">
                 <div className="max-w-7xl mx-auto">
-                    {/* Search and Filters */}
+                    {/* Search and Filters - Sticky */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.3 }}
-                        className="mb-8"
+                        className="mb-8 sticky top-0 z-40 bg-background/95 dark:bg-background/95 backdrop-blur-md py-4 -mx-6 px-6 border-b border-border"
                     >
                         <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4 mb-6">
                             <div className="relative flex-1 max-w-md lg:max-w-sm">
@@ -185,7 +185,7 @@ export default function PublicMenuPage() {
                                     placeholder="Search for dishes..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="pl-10 h-12 bg-card border-2 text-lg focus:border-orange-500 focus:ring-orange-500/20 lg:w-64"
+                                    className="pl-10 h-12 bg-card border-2 text-lg focus:border-primary focus:ring-primary/20 lg:w-64"
                                 />
                             </div>
                             <div className="flex flex-col sm:flex-row gap-2 lg:gap-4">
@@ -290,11 +290,11 @@ export default function PublicMenuPage() {
                                     className="relative group"
                                 >
                                     {viewMode === "grid" ? (
-                                        <Card className="bg-card border hover:border-primary/20 hover:shadow-xl transition-all duration-300 overflow-hidden group">
-                                            <CardContent className="p-6">
+                                        <Card className="bg-card border hover:border-primary/30 hover:shadow-xl transition-all duration-300 overflow-hidden group h-full flex flex-col">
+                                            <CardContent className="p-6 flex flex-col flex-1">
                                                 <div className="relative mb-4">
                                                     {item.isFeatured && (
-                                                        <Badge className="absolute top-2 right-2 bg-gradient-to-r from-orange-500 to-amber-600 text-white shadow-lg">
+                                                        <Badge className="absolute top-2 right-2 bg-primary text-primary-foreground shadow-lg">
                                                             <Star className="w-3 h-3 mr-1" />
                                                             Featured
                                                         </Badge>
@@ -309,12 +309,14 @@ export default function PublicMenuPage() {
                                                             />
                                                         </div>
                                                     ) : (
-                                                        <div className="w-full h-40 mb-4 rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 dark:from-zinc-800 dark:to-zinc-700 flex items-center justify-center">
+                                                        <div className="w-full h-40 mb-4 rounded-lg bg-gradient-to-br from-[#FAF7F2] to-[#F0EBE3] dark:from-zinc-800 dark:to-zinc-700 flex items-center justify-center">
                                                             <div className="text-4xl">🍽</div>
                                                         </div>
                                                     )}
+                                                </div>
 
-                                                    <h3 className="font-bold text-lg text-foreground mb-2 group-hover:text-orange-600 transition-colors">
+                                                <div className="flex-1">
+                                                    <h3 className="font-bold text-lg text-card-foreground mb-2 group-hover:text-primary transition-colors">
                                                         {item.name}
                                                     </h3>
                                                     
@@ -322,10 +324,10 @@ export default function PublicMenuPage() {
                                                         {item.description}
                                                     </p>
 
-                                                    <div className="flex items-center gap-3 text-sm">
+                                                    <div className="flex items-center gap-3 text-sm mb-4">
                                                         {item.preparationTime && (
-                                                            <div className="flex items-center gap-2 bg-orange-100 dark:bg-orange-900 px-3 py-1 rounded-full">
-                                                                <Clock className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                                            <div className="flex items-center gap-2 bg-[#FAF7F2] dark:bg-primary/10 px-3 py-1 rounded-full">
+                                                                <Clock className="w-4 h-4 text-primary" />
                                                                 <span className="font-medium">{item.preparationTime} min</span>
                                                             </div>
                                                         )}
@@ -341,38 +343,38 @@ export default function PublicMenuPage() {
                                                             </div>
                                                         )}
                                                     </div>
+                                                </div>
 
-                                                    <div className="flex items-center justify-between mt-4">
-                                                        <div>
-                                                            {item.offerPrice ? (
-                                                                <>
-                                                                    <span className="text-lg font-bold text-orange-600">
-                                                                        {formatCurrency(item.offerPrice)}
-                                                                    </span>
-                                                                    <span className="text-sm text-muted-foreground line-through ml-2">
-                                                                        {formatCurrency(item.price)}
-                                                                    </span>
-                                                                </>
-                                                            ) : (
-                                                                <span className="text-lg font-bold text-foreground">
+                                                <div className="flex items-center justify-between mt-auto pt-4 border-t border-border">
+                                                    <div>
+                                                        {item.offerPrice ? (
+                                                            <>
+                                                                <span className="text-lg font-bold text-primary">
+                                                                    {formatCurrency(item.offerPrice)}
+                                                                </span>
+                                                                <span className="text-sm text-muted-foreground line-through ml-2">
                                                                     {formatCurrency(item.price)}
                                                                 </span>
-                                                            )}
-                                                        </div>
-                                                        
-                                                        <div className="flex items-center gap-1">
-                                                            {item.isAvailable ? (
-                                                                <CheckCircle className="w-4 h-4 text-green-500" />
-                                                            ) : (
-                                                                <XCircle className="w-4 h-4 text-red-500" />
-                                                            )}
-                                                        </div>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-lg font-bold text-card-foreground">
+                                                                {formatCurrency(item.price)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    
+                                                    <div className="flex items-center gap-1">
+                                                        {item.isAvailable ? (
+                                                            <CheckCircle className="w-4 h-4 text-green-500" />
+                                                        ) : (
+                                                            <XCircle className="w-4 h-4 text-red-500" />
+                                                        )}
                                                     </div>
                                                 </div>
                                             </CardContent>
                                         </Card>
                                     ) : (
-                                        <Card className="bg-card border hover:border-primary/20 hover:shadow-lg transition-all duration-300">
+                                        <Card className="bg-card border hover:border-primary/30 hover:shadow-lg transition-all duration-300">
                                             <CardContent className="p-6">
                                                 <div className="flex gap-4">
                                                     <div className="relative">
@@ -383,12 +385,12 @@ export default function PublicMenuPage() {
                                                                 className="w-24 h-24 rounded-lg object-cover"
                                                             />
                                                         ) : (
-                                                            <div className="w-24 h-24 rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 dark:from-zinc-800 dark:to-zinc-700 flex items-center justify-center">
+                                                            <div className="w-24 h-24 rounded-lg bg-gradient-to-br from-[#FAF7F2] to-[#F0EBE3] dark:from-zinc-800 dark:to-zinc-700 flex items-center justify-center">
                                                                 <div className="text-2xl">🍽</div>
                                                             </div>
                                                         )}
                                                         {item.isFeatured && (
-                                                            <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-orange-500 to-amber-600 text-white">
+                                                            <Badge className="absolute -top-2 -right-2 bg-primary text-primary-foreground">
                                                                 <Star className="w-3 h-3" />
                                                             </Badge>
                                                         )}
@@ -396,7 +398,7 @@ export default function PublicMenuPage() {
                                                     
                                                     <div className="flex-1">
                                                         <div className="flex items-start justify-between mb-2">
-                                                            <h3 className="font-bold text-lg text-foreground group-hover:text-orange-600 transition-colors">
+                                                            <h3 className="font-bold text-lg text-card-foreground group-hover:text-primary transition-colors">
                                                                 {item.name}
                                                             </h3>
                                                             <div className="flex items-center gap-1">
@@ -416,7 +418,7 @@ export default function PublicMenuPage() {
                                                             <div className="flex items-center gap-3 text-sm">
                                                                 {item.preparationTime && (
                                                                     <div className="flex items-center gap-1">
-                                                                        <Clock className="w-3 h-3 text-orange-600" />
+                                                                        <Clock className="w-3 h-3 text-primary" />
                                                                         <span>{item.preparationTime}m</span>
                                                                     </div>
                                                                 )}
@@ -436,7 +438,7 @@ export default function PublicMenuPage() {
                                                             <div>
                                                                 {item.offerPrice ? (
                                                                     <>
-                                                                        <span className="text-lg font-bold text-orange-600">
+                                                                        <span className="text-lg font-bold text-primary">
                                                                             {formatCurrency(item.offerPrice)}
                                                                         </span>
                                                                         <span className="text-sm text-muted-foreground line-through ml-2">
@@ -444,7 +446,7 @@ export default function PublicMenuPage() {
                                                                         </span>
                                                                     </>
                                                                 ) : (
-                                                                    <span className="text-lg font-bold text-foreground">
+                                                                    <span className="text-lg font-bold text-card-foreground">
                                                                         {formatCurrency(item.price)}
                                                                     </span>
                                                                 )}

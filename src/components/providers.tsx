@@ -7,7 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 export function Providers({ children }: { children: React.ReactNode }) {
     return (
         <SessionProvider>
-            <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+            <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
                 <TooltipProvider>
                     {children}
                 </TooltipProvider>

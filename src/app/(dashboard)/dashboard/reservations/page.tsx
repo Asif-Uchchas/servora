@@ -189,12 +189,12 @@ export default function ReservationsPage() {
         return (
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                    <h1 className="text-3xl font-bold text-white">Reservations</h1>
+                    <h1 className="text-3xl font-bold text-foreground">Reservations</h1>
                     <Skeleton className="h-10 w-32" />
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                     {RESERVATION_STATUS.map(status => (
-                        <Card key={status} className="bg-zinc-900 border-zinc-800">
+                        <Card key={status}>
                             <CardHeader className="pb-3">
                                 <Skeleton className="h-6 w-20" />
                             </CardHeader>
@@ -220,25 +220,24 @@ export default function ReservationsPage() {
             className="space-y-6"
         >
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <h1 className="text-3xl font-bold text-white">Reservations</h1>
+                <h1 className="text-3xl font-bold text-foreground">Reservations</h1>
                 <div className="flex items-center gap-3">
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Search reservations..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder-zinc-500 w-64"
+                            className="pl-10 w-64"
                         />
                     </div>
                     <Button 
                         onClick={() => setIsAddModalOpen(true)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
                         <Plus className="h-4 w-4 mr-2" />
                         Add Reservation
                     </Button>
-                    <Button className="bg-zinc-800 hover:bg-zinc-700 text-white">
+                    <Button variant="secondary">
                         <RefreshCw className="h-4 w-4 mr-2" />
                         Refresh
                     </Button>
@@ -246,12 +245,12 @@ export default function ReservationsPage() {
             </div>
 
             <Tabs value={selectedStatus} onValueChange={setSelectedStatus} className="w-full">
-                <TabsList className="grid w-full grid-cols-5 bg-zinc-900 border-zinc-800">
-                    <TabsTrigger value="all" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white">
+                <TabsList className="grid w-full grid-cols-5">
+                    <TabsTrigger value="all">
                         All ({filteredReservations.length})
                     </TabsTrigger>
                     {RESERVATION_STATUS.map(status => (
-                        <TabsTrigger key={status} value={status} className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white">
+                        <TabsTrigger key={status} value={status}>
                             {status.charAt(0) + status.slice(1).toLowerCase()} 
                             ({reservationsByStatus.find(s => s.status === status)?.reservations.length || 0})
                         </TabsTrigger>
@@ -262,9 +261,9 @@ export default function ReservationsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {reservationsByStatus.map(({ status, icon: Icon, reservations, color }) => (
                     <motion.div key={status} variants={item}>
-                        <Card className="bg-zinc-900 border-zinc-800">
+                        <Card>
                             <CardHeader className="pb-3">
-                                <CardTitle className="flex items-center gap-2 text-white">
+                                <CardTitle className="flex items-center gap-2 text-foreground">
                                     <Icon className={`h-5 w-5 ${color}`} />
                                     {status.charAt(0) + status.slice(1).toLowerCase()}
                                     <Badge variant="secondary" className="ml-auto">
@@ -283,18 +282,18 @@ export default function ReservationsPage() {
                                                 animate={{ opacity: 1, scale: 1 }}
                                                 exit={{ opacity: 0, scale: 0.95 }}
                                                 transition={{ duration: 0.2 }}
-                                                className="bg-zinc-800 rounded-lg p-4 cursor-pointer hover:bg-zinc-700 transition-colors"
+                                                className="bg-secondary rounded-lg p-4 cursor-pointer hover:bg-accent transition-colors"
                                                 onClick={() => setSelectedReservation(reservation)}
                                             >
                                                 <div className="flex items-start justify-between mb-2">
                                                     <div>
-                                                        <div className="font-semibold text-white">{reservation.customerName}</div>
-                                                        <div className="flex items-center gap-2 text-sm text-zinc-400">
+                                                        <div className="font-semibold text-foreground">{reservation.customerName}</div>
+                                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                                             <Users className="h-3 w-3" />
                                                             {reservation.guests} guests
                                                         </div>
                                                         {reservation.tableNumber && (
-                                                            <div className="flex items-center gap-2 text-sm text-zinc-400">
+                                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                                                 <Table className="h-3 w-3" />
                                                                 Table {reservation.tableNumber}
                                                             </div>
@@ -303,29 +302,29 @@ export default function ReservationsPage() {
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
                                                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                                <MoreHorizontal className="h-4 w-4 text-zinc-400" />
+                                                                <MoreHorizontal className="h-4 w-4" />
                                                             </Button>
                                                         </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end" className="bg-zinc-800 border-zinc-700">
-                                                            <DropdownMenuItem onClick={() => setSelectedReservation(reservation)} className="text-white">
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem onClick={() => setSelectedReservation(reservation)}>
                                                                 <Users className="h-4 w-4 mr-2" />
                                                                 View Details
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuSeparator className="bg-zinc-700" />
+                                                            <DropdownMenuSeparator />
                                                             {status === 'PENDING' && (
-                                                                <DropdownMenuItem onClick={() => updateReservationStatus(reservation.id, 'CONFIRMED')} className="text-white">
+                                                                <DropdownMenuItem onClick={() => updateReservationStatus(reservation.id, 'CONFIRMED')}>
                                                                     <Check className="h-4 w-4 mr-2" />
                                                                     Confirm
                                                                 </DropdownMenuItem>
                                                             )}
                                                             {status === 'CONFIRMED' && (
-                                                                <DropdownMenuItem onClick={() => updateReservationStatus(reservation.id, 'COMPLETED')} className="text-white">
+                                                                <DropdownMenuItem onClick={() => updateReservationStatus(reservation.id, 'COMPLETED')}>
                                                                     <Users className="h-4 w-4 mr-2" />
                                                                     Mark Completed
                                                                 </DropdownMenuItem>
                                                             )}
                                                             {status !== 'CANCELLED' && status !== 'COMPLETED' && (
-                                                                <DropdownMenuItem onClick={() => updateReservationStatus(reservation.id, 'CANCELLED')} className="text-red-400">
+                                                                <DropdownMenuItem onClick={() => updateReservationStatus(reservation.id, 'CANCELLED')} className="text-destructive">
                                                                     <X className="h-4 w-4 mr-2" />
                                                                     Cancel
                                                                 </DropdownMenuItem>
@@ -334,10 +333,10 @@ export default function ReservationsPage() {
                                                     </DropdownMenu>
                                                 </div>
                                                 <div className="flex items-center justify-between">
-                                                    <div className="text-xs text-zinc-500">
+                                                    <div className="text-xs text-muted-foreground">
                                                         {formatDateTime(reservation.reservationTime)}
                                                     </div>
-                                                    <div className="text-xs text-zinc-500">
+                                                    <div className="text-xs text-muted-foreground">
                                                         {formatTime(reservation.reservationTime)}
                                                     </div>
                                                 </div>
@@ -352,7 +351,7 @@ export default function ReservationsPage() {
             </div>
 
             <Dialog open={!!selectedReservation} onOpenChange={() => setSelectedReservation(null)}>
-                <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-3">
                             Reservation Details
@@ -365,35 +364,35 @@ export default function ReservationsPage() {
                         <div className="space-y-6">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <Label className="text-sm font-medium text-zinc-400">Customer Name</Label>
-                                    <p className="text-white">{selectedReservation.customerName}</p>
+                                    <Label className="text-sm font-medium text-muted-foreground">Customer Name</Label>
+                                    <p className="text-foreground">{selectedReservation.customerName}</p>
                                 </div>
                                 <div>
-                                    <Label className="text-sm font-medium text-zinc-400">Phone</Label>
-                                    <p className="text-white">{selectedReservation.phone || 'N/A'}</p>
+                                    <Label className="text-sm font-medium text-muted-foreground">Phone</Label>
+                                    <p className="text-foreground">{selectedReservation.phone || 'N/A'}</p>
                                 </div>
                                 <div>
-                                    <Label className="text-sm font-medium text-zinc-400">Email</Label>
-                                    <p className="text-white">{selectedReservation.email || 'N/A'}</p>
+                                    <Label className="text-sm font-medium text-muted-foreground">Email</Label>
+                                    <p className="text-foreground">{selectedReservation.email || 'N/A'}</p>
                                 </div>
                                 <div>
-                                    <Label className="text-sm font-medium text-zinc-400">Guests</Label>
-                                    <p className="text-white">{selectedReservation.guests}</p>
+                                    <Label className="text-sm font-medium text-muted-foreground">Guests</Label>
+                                    <p className="text-foreground">{selectedReservation.guests}</p>
                                 </div>
                                 <div>
-                                    <Label className="text-sm font-medium text-zinc-400">Table</Label>
-                                    <p className="text-white">{selectedReservation.tableNumber || 'N/A'}</p>
+                                    <Label className="text-sm font-medium text-muted-foreground">Table</Label>
+                                    <p className="text-foreground">{selectedReservation.tableNumber || 'N/A'}</p>
                                 </div>
                                 <div>
-                                    <Label className="text-sm font-medium text-zinc-400">Reservation Time</Label>
-                                    <p className="text-white">{formatDateTime(selectedReservation.reservationTime)}</p>
+                                    <Label className="text-sm font-medium text-muted-foreground">Reservation Time</Label>
+                                    <p className="text-foreground">{formatDateTime(selectedReservation.reservationTime)}</p>
                                 </div>
                             </div>
                             
                             {selectedReservation.notes && (
                                 <div>
-                                    <Label className="text-sm font-medium text-zinc-400">Notes</Label>
-                                    <p className="text-white bg-zinc-800 p-3 rounded-lg">{selectedReservation.notes}</p>
+                                    <Label className="text-sm font-medium text-muted-foreground">Notes</Label>
+                                    <p className="text-foreground bg-secondary p-3 rounded-lg">{selectedReservation.notes}</p>
                                 </div>
                             )}
                         </div>
@@ -402,7 +401,7 @@ export default function ReservationsPage() {
             </Dialog>
 
             <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-                <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-lg">
+                <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle>Add New Reservation</DialogTitle>
                     </DialogHeader>
@@ -413,7 +412,6 @@ export default function ReservationsPage() {
                                 id="customerName"
                                 value={newReservation.customerName}
                                 onChange={(e) => setNewReservation({...newReservation, customerName: e.target.value})}
-                                className="bg-zinc-800 border-zinc-700"
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
@@ -423,7 +421,6 @@ export default function ReservationsPage() {
                                     id="phone"
                                     value={newReservation.phone}
                                     onChange={(e) => setNewReservation({...newReservation, phone: e.target.value})}
-                                    className="bg-zinc-800 border-zinc-700"
                                 />
                             </div>
                             <div>
@@ -433,7 +430,6 @@ export default function ReservationsPage() {
                                     type="email"
                                     value={newReservation.email}
                                     onChange={(e) => setNewReservation({...newReservation, email: e.target.value})}
-                                    className="bg-zinc-800 border-zinc-700"
                                 />
                             </div>
                         </div>
@@ -446,7 +442,6 @@ export default function ReservationsPage() {
                                     min="1"
                                     value={newReservation.guests}
                                     onChange={(e) => setNewReservation({...newReservation, guests: parseInt(e.target.value)})}
-                                    className="bg-zinc-800 border-zinc-700"
                                 />
                             </div>
                             <div>
@@ -455,7 +450,6 @@ export default function ReservationsPage() {
                                     id="tableNumber"
                                     value={newReservation.tableNumber}
                                     onChange={(e) => setNewReservation({...newReservation, tableNumber: e.target.value})}
-                                    className="bg-zinc-800 border-zinc-700"
                                 />
                             </div>
                         </div>
@@ -466,7 +460,6 @@ export default function ReservationsPage() {
                                 type="datetime-local"
                                 value={newReservation.reservationTime}
                                 onChange={(e) => setNewReservation({...newReservation, reservationTime: e.target.value})}
-                                className="bg-zinc-800 border-zinc-700"
                             />
                         </div>
                         <div>
@@ -475,7 +468,6 @@ export default function ReservationsPage() {
                                 id="notes"
                                 value={newReservation.notes}
                                 onChange={(e) => setNewReservation({...newReservation, notes: e.target.value})}
-                                className="bg-zinc-800 border-zinc-700"
                             />
                         </div>
                     </div>
@@ -483,11 +475,10 @@ export default function ReservationsPage() {
                         <Button 
                             variant="outline" 
                             onClick={() => setIsAddModalOpen(false)}
-                            className="border-zinc-700 text-white hover:bg-zinc-800"
                         >
                             Cancel
                         </Button>
-                        <Button onClick={createReservation} className="bg-blue-600 hover:bg-blue-700">
+                        <Button onClick={createReservation}>
                             Create Reservation
                         </Button>
                     </DialogFooter>
