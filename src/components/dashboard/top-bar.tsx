@@ -50,7 +50,7 @@ export function TopBar() {
                         className="h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-xl relative"
                     >
                         <Bell className="w-5 h-5" />
-                        <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-orange-500" />
+                        <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
                     </Button>
 
                     <div className="w-px h-8 bg-border mx-1" />
@@ -59,7 +59,7 @@ export function TopBar() {
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-10 gap-3 px-3 hover:bg-muted/50 rounded-xl">
                                 <Avatar className="h-8 w-8">
-                                    <AvatarFallback className="bg-gradient-to-br from-orange-500 to-amber-600 text-white text-xs font-bold">
+                                    <AvatarFallback className="bg-gradient-to-br from-primary to-[#B8962E] text-white text-xs font-bold">
                                         {userInitials}
                                     </AvatarFallback>
                                 </Avatar>

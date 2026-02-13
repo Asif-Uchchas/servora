@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Search, Plus, CreditCard, Receipt, Printer, Clock, Users,
     DollarSign, Check, X, Eye, Settings, ChefHat, ShoppingCart,
     Calendar, Filter, Sun, Moon, Star, Minus, Trash2, Save, Send,
     Keyboard, Zap, Utensils, Coffee, Wine, IceCream, Grid3X3, List,
+    FileText, ArrowLeft, Banknote, Calculator,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -305,7 +306,151 @@ const GLOBAL_STYLES = `
     to   { opacity: 1; transform: translateY(0); }
   }
   .fade-up { animation: fadeUp 0.35s ease forwards; }
+
+  /* Quick amount button */
+  .quick-amount {
+    padding: 10px 16px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .quick-amount:hover {
+    border-color: var(--gold-dim);
+    background: rgba(201,168,76,0.1);
+  }
+  .quick-amount.selected {
+    border-color: var(--gold);
+    background: rgba(201,168,76,0.15);
+    color: var(--gold-light);
+  }
+
+  /* Print styles */
+  @media print {
+    body * { visibility: hidden; }
+    .receipt-container, .receipt-container * { visibility: visible; }
+    .receipt-container { 
+      position: absolute; 
+      left: 0; 
+      top: 0; 
+      width: 100%; 
+      margin: 0; 
+      padding: 0;
+      background: white !important;
+      color: black !important;
+    }
+    .no-print { display: none !important; }
+  }
 `;
+
+/* ─── Receipt Component ───────────────────────────────────────────────── */
+function ReceiptContent({ order, restaurantName = "Servora Restaurant" }: { order: Order; restaurantName?: string }) {
+    const subtotal = order.totalAmount * 0.9;
+    const tax = order.totalAmount * 0.1;
+    const now = new Date();
+
+    return (
+        <div className="receipt-container" style={{
+            width: 280,
+            padding: 20,
+            background: "#fff",
+            color: "#000",
+            fontFamily: "'DM Mono', monospace",
+            fontSize: 12,
+        }}>
+            {/* Header */}
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, fontFamily: "'Cormorant Garamond', serif" }}>
+                    {restaurantName}
+                </h2>
+                <p style={{ margin: "4px 0", fontSize: 10, color: "#666" }}>
+                    123 Restaurant Street, City
+                </p>
+                <p style={{ margin: "4px 0", fontSize: 10, color: "#666" }}>
+                    Tel: +1 234 567 890
+                </p>
+            </div>
+
+            <div style={{ borderTop: "1px dashed #ccc", borderBottom: "1px dashed #ccc", padding: "12px 0", marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ color: "#666" }}>Order #</span>
+                    <span style={{ fontWeight: 600 }}>{order.orderNumber}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ color: "#666" }}>Date</span>
+                    <span>{now.toLocaleDateString()}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: "#666" }}>Time</span>
+                    <span>{now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+                {order.tableNumber && (
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                        <span style={{ color: "#666" }}>Table</span>
+                        <span>{order.tableNumber}</span>
+                    </div>
+                )}
+                {order.customerName && (
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                        <span style={{ color: "#666" }}>Customer</span>
+                        <span>{order.customerName}</span>
+                    </div>
+                )}
+            </div>
+
+            {/* Items */}
+            <div style={{ marginBottom: 12 }}>
+                <div style={{ borderBottom: "1px solid #eee", paddingBottom: 6, marginBottom: 6, fontWeight: 600, fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Items
+                </div>
+                {order.items?.map((item, idx) => (
+                    <div key={idx} style={{ marginBottom: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <span style={{ flex: 1 }}>{item.quantity}x {item.menuItem?.name || "Item"}</span>
+                            <span style={{ fontWeight: 500 }}>{formatCurrency(item.totalPrice)}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Totals */}
+            <div style={{ borderTop: "1px dashed #ccc", paddingTop: 12, marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ color: "#666" }}>Subtotal</span>
+                    <span>{formatCurrency(subtotal)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ color: "#666" }}>Tax (10%)</span>
+                    <span>{formatCurrency(tax)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8, borderTop: "1px solid #eee", fontWeight: 600, fontSize: 14 }}>
+                    <span>TOTAL</span>
+                    <span>{formatCurrency(order.totalAmount)}</span>
+                </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ textAlign: "center", marginTop: 20, paddingTop: 12, borderTop: "1px dashed #ccc" }}>
+                <p style={{ margin: "4px 0", fontSize: 10, color: "#666" }}>
+                    Thank you for dining with us!
+                </p>
+                <p style={{ margin: "4px 0", fontSize: 9, color: "#999" }}>
+                    Please come again
+                </p>
+            </div>
+
+            <div style={{ textAlign: "center", marginTop: 16 }}>
+                <p style={{ margin: 0, fontSize: 8, color: "#bbb" }}>
+                    ─────────────────────────────────
+                </p>
+            </div>
+        </div>
+    );
+}
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 export default function POSPage() {
@@ -314,12 +459,16 @@ export default function POSPage() {
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
     const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [isBillModalOpen, setIsBillModalOpen] = useState(false);
+    const [amountReceived, setAmountReceived] = useState("");
+    const [paymentOrder, setPaymentOrder] = useState<Order | null>(null);
+    const [showShortcuts, setShowShortcuts] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [menuCategories, setMenuCategories] = useState<string[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string>("all");
-    const [showShortcuts, setShowShortcuts] = useState(false);
     const [newOrder, setNewOrder] = useState({
         customerName: "", tableNumber: "", items: [] as any[], notes: ""
     });
@@ -377,6 +526,64 @@ export default function POSPage() {
                 toast.success(`Status → ${newStatus}`);
             }
         } catch { toast.error("Failed to update status"); }
+    };
+
+    const initiatePayment = (order: Order) => {
+        setPaymentOrder(order);
+        setAmountReceived(order.totalAmount.toString());
+        setIsPaymentModalOpen(true);
+    };
+
+    const completePayment = async () => {
+        if (!paymentOrder) return;
+        
+        const amount = parseFloat(amountReceived);
+        if (isNaN(amount) || amount < paymentOrder.totalAmount) {
+            toast.error("Insufficient amount");
+            return;
+        }
+
+        try {
+            const r = await fetch(`/api/pos/orders/${paymentOrder.id}/complete`, { method: "POST" });
+            if (r.ok) {
+                setOrders(prev => prev.map(o => o.id === paymentOrder.id ? { ...o, status: "PAID", paymentStatus: "PAID" } : o));
+                setIsPaymentModalOpen(false);
+                toast.success("Payment recorded");
+                // Open bill modal after payment
+                setIsBillModalOpen(true);
+            }
+        } catch { toast.error("Failed to complete payment"); }
+    };
+
+    const changeAmount = paymentOrder ? Math.max(0, parseFloat(amountReceived || "0") - paymentOrder.totalAmount) : 0;
+
+    const printBill = () => {
+        if (!paymentOrder) return;
+        const printContent = document.getElementById("receipt-content");
+        if (!printContent) return;
+        
+        const printWindow = window.open("", "_blank", "width=400,height=600");
+        if (printWindow) {
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Receipt - ${paymentOrder.orderNumber}</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+                    <style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body { font-family: 'DM Mono', monospace; }
+                    </style>
+                </head>
+                <body>${printContent.innerHTML}</body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 500);
+        }
     };
 
     const completeOrder = async (orderId: string) => {
@@ -461,6 +668,14 @@ export default function POSPage() {
         ready: orders.filter(o => o.status === "READY").length,
     };
 
+    const handleReportClick = () => {
+        window.open("/dashboard/reports", "_blank");
+    };
+
+    const handleSettingsClick = () => {
+        window.location.href = "/dashboard/settings";
+    };
+
     if (loading) {
         return (
             <div style={{ background: "#0d0d0f", height: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -523,11 +738,13 @@ export default function POSPage() {
                             <Keyboard style={{ width: 12, height: 12 }} />
                             F1
                         </button>
-                        <button className="btn-ghost-gold" style={{ padding: "6px 12px", borderRadius: 6, fontSize: 11, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                        <button className="btn-ghost-gold" style={{ padding: "6px 12px", borderRadius: 6, fontSize: 11, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}
+                            onClick={handleReportClick}>
                             <Printer style={{ width: 12, height: 12 }} />
                             Report
                         </button>
-                        <button className="btn-ghost-gold" style={{ padding: "6px 12px", borderRadius: 6, fontSize: 11, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                        <button className="btn-ghost-gold" style={{ padding: "6px 12px", borderRadius: 6, fontSize: 11, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}
+                            onClick={handleSettingsClick}>
                             <Settings style={{ width: 12, height: 12 }} />
                             Settings
                         </button>
@@ -689,7 +906,7 @@ export default function POSPage() {
                                                                 color: "#6eca8f", display: "flex", alignItems: "center", gap: 4, cursor: "pointer",
                                                                 transition: "all 0.15s ease", whiteSpace: "nowrap"
                                                             }}
-                                                                onClick={() => completeOrder(order.id)}>
+                                                                onClick={() => initiatePayment(order)}>
                                                                 <CreditCard style={{ width: 10, height: 10 }} /> Pay
                                                             </button>
                                                         )}
@@ -711,6 +928,149 @@ export default function POSPage() {
                         )}
                     </div>
                 </div>
+
+                {/* ─── PAYMENT MODAL ─────────────────────────────────────── */}
+                <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
+                    <DialogContent style={{ background: "var(--surface-1)", border: "1px solid var(--border)", maxWidth: 420, borderRadius: 14, color: "var(--text-primary)" }}>
+                        <DialogHeader>
+                            <DialogTitle className="serif-heading" style={{ fontSize: 22, display: "flex", alignItems: "center", gap: 10 }}>
+                                <Banknote style={{ width: 20, height: 20, color: "var(--gold)" }} />
+                                Payment
+                            </DialogTitle>
+                            <DialogDescription className="sr-only">
+                                Process payment for the order.
+                            </DialogDescription>
+                        </DialogHeader>
+                        {paymentOrder && (
+                            <div style={{ marginTop: 8 }}>
+                                {/* Order Summary */}
+                                <div style={{ background: "var(--surface-2)", borderRadius: 10, padding: 16, marginBottom: 20, border: "1px solid var(--border)" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                                        <span style={{ color: "var(--text-muted)", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase" }}>Order #{paymentOrder.orderNumber}</span>
+                                        <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, color: "var(--gold-light)" }}>
+                                            {formatCurrency(paymentOrder.totalAmount)}
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                                        {paymentOrder.items?.length || 0} items
+                                        {paymentOrder.tableNumber && ` • Table ${paymentOrder.tableNumber}`}
+                                    </div>
+                                </div>
+
+                                {/* Amount Received */}
+                                <div style={{ marginBottom: 16 }}>
+                                    <label style={{ display: "block", fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>
+                                        Amount Received
+                                    </label>
+                                    <div style={{ position: "relative" }}>
+                                        <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--gold)", fontSize: 16 }}>$</span>
+                                        <input
+                                            type="number"
+                                            className="gold-input"
+                                            value={amountReceived}
+                                            onChange={e => setAmountReceived(e.target.value)}
+                                            style={{ width: "100%", padding: "14px 14px 14px 32px", borderRadius: 10, fontSize: 20, fontWeight: 600, outline: "none" }}
+                                            autoFocus
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Quick Amount Buttons */}
+                                <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+                                    {[paymentOrder.totalAmount, paymentOrder.totalAmount * 2, paymentOrder.totalAmount * 3, 50, 100].map((amount, idx) => (
+                                        <button
+                                            key={idx}
+                                            className={`quick-amount ${parseFloat(amountReceived) === amount ? 'selected' : ''}`}
+                                            onClick={() => setAmountReceived(amount.toString())}
+                                        >
+                                            {formatCurrency(amount)}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Change Return */}
+                                <div style={{ 
+                                    background: changeAmount >= 0 ? "rgba(110,202,143,0.1)" : "rgba(239,68,68,0.1)", 
+                                    border: `1px solid ${changeAmount >= 0 ? "rgba(110,202,143,0.3)" : "rgba(239,68,68,0.3)"}`,
+                                    borderRadius: 10, 
+                                    padding: 16,
+                                    marginBottom: 20
+                                }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                            <Calculator style={{ width: 16, height: 16, color: changeAmount >= 0 ? "#6eca8f" : "#ef4444" }} />
+                                            <span style={{ fontSize: 12, color: changeAmount >= 0 ? "#6eca8f" : "#ef4444", letterSpacing: "0.04em" }}>
+                                                CHANGE TO RETURN
+                                            </span>
+                                        </div>
+                                        <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, color: changeAmount >= 0 ? "#6eca8f" : "#ef4444", fontWeight: 300 }}>
+                                            {formatCurrency(changeAmount)}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div style={{ display: "flex", gap: 10 }}>
+                                    <button 
+                                        className="btn-ghost-gold"
+                                        style={{ flex: 1, padding: "12px", borderRadius: 8, fontSize: 13, cursor: "pointer" }}
+                                        onClick={() => setIsPaymentModalOpen(false)}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        className="btn-gold"
+                                        style={{ flex: 2, padding: "12px", borderRadius: 8, fontSize: 13, cursor: "pointer", opacity: changeAmount >= 0 ? 1 : 0.5 }}
+                                        onClick={completePayment}
+                                        disabled={changeAmount < 0}
+                                    >
+                                        <Check style={{ width: 14, height: 14 }} />
+                                        Complete Payment
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
+
+                {/* ─── BILL PRINT MODAL ───────────────────────────────────── */}
+                <Dialog open={isBillModalOpen} onOpenChange={setIsBillModalOpen}>
+                    <DialogContent style={{ background: "var(--surface-1)", border: "1px solid var(--border)", maxWidth: 380, borderRadius: 14, color: "var(--text-primary)" }}>
+                        <DialogHeader>
+                            <DialogTitle className="serif-heading" style={{ fontSize: 22, display: "flex", alignItems: "center", gap: 10 }}>
+                                <Receipt style={{ width: 20, height: 20, color: "var(--gold)" }} />
+                                Print Bill
+                            </DialogTitle>
+                        </DialogHeader>
+                        {paymentOrder && (
+                            <div style={{ marginTop: 8 }}>
+                                <div style={{ background: "#fff", borderRadius: 8, padding: 16, marginBottom: 20, color: "#000" }}>
+                                    <ReceiptContent order={paymentOrder} />
+                                    <div id="receipt-content" style={{ display: "none" }}>
+                                        <ReceiptContent order={paymentOrder} />
+                                    </div>
+                                </div>
+                                <div style={{ display: "flex", gap: 10 }}>
+                                    <button 
+                                        className="btn-ghost-gold"
+                                        style={{ flex: 1, padding: "12px", borderRadius: 8, fontSize: 13, cursor: "pointer" }}
+                                        onClick={() => setIsBillModalOpen(false)}
+                                    >
+                                        Close
+                                    </button>
+                                    <button 
+                                        className="btn-gold"
+                                        style={{ flex: 2, padding: "12px", borderRadius: 8, fontSize: 13, cursor: "pointer" }}
+                                        onClick={printBill}
+                                    >
+                                        <Printer style={{ width: 14, height: 14 }} />
+                                        Print Receipt
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
 
                 {/* ─── ORDER DETAILS MODAL ──────────────────────────────── */}
                 <Dialog open={isOrderModalOpen} onOpenChange={setIsOrderModalOpen}>
