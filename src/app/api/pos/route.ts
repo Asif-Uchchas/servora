@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 
+interface MenuItemSelect {
+    id: string;
+    name: string;
+    price: number;
+    category: { name: string } | null;
+}
+
 // GET - Fetch all orders for POS
 export async function GET(req: NextRequest) {
     try {
@@ -50,10 +57,10 @@ export async function GET(req: NextRequest) {
                 totalPrice: item.price * item.quantity,
                 specialInstructions: item.notes,
                 menuItem: {
-                    id: item.menuItem?.id || "",
-                    name: item.menuItem?.name || "Unknown Item",
-                    price: item.menuItem?.price || 0,
-                    category: item.menuItem?.category
+                    id: (item.menuItem as MenuItemSelect | null)?.id || "",
+                    name: (item.menuItem as MenuItemSelect | null)?.name || "Unknown Item",
+                    price: (item.menuItem as MenuItemSelect | null)?.price || 0,
+                    category: (item.menuItem as MenuItemSelect | null)?.category
                 }
             }))
         }));
@@ -157,10 +164,10 @@ export async function POST(req: NextRequest) {
                 unitPrice: item.price,
                 totalPrice: item.price * item.quantity,
                 menuItem: {
-                    id: item.menuItem?.id || "",
-                    name: item.menuItem?.name || "Unknown Item",
-                    price: item.menuItem?.price || 0,
-                    category: item.menuItem?.category
+                    id: (item.menuItem as MenuItemSelect | null)?.id || "",
+                    name: (item.menuItem as MenuItemSelect | null)?.name || "Unknown Item",
+                    price: (item.menuItem as MenuItemSelect | null)?.price || 0,
+                    category: (item.menuItem as MenuItemSelect | null)?.category
                 }
             }))
         });
