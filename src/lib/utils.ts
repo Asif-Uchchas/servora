@@ -78,3 +78,14 @@ export function truncateText(text: string, maxLength: number) {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength) + "...";
 }
+
+export function formatOrderNumber(n: number) {
+  return `#${String(n).padStart(4, "0")}`;
+}
+
+/** "4m" / "1h 12m" since a timestamp. */
+export function elapsed(from: Date | string, now = Date.now()) {
+  const mins = Math.max(0, Math.floor((now - new Date(from).getTime()) / 60000));
+  if (mins < 60) return `${mins}m`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}

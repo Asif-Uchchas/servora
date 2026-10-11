@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
 
 // ─── ENUMS ──────────────────────────────────────────────
@@ -41,25 +41,76 @@ enum TransactionType {
   WASTE
 }
 
+enum Plan {
+  STARTER
+  PRO
+  BUSINESS
+}
+
+enum SubscriptionStatus {
+  NONE
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  OTHER
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  CLEANING
+}
+
+enum OrderSource {
+  POS
+  QR
+}
+
 // ─── MODELS ─────────────────────────────────────────────
 
 model Restaurant {
-  id        String   @id @default(cuid())
-  name      String
-  logo      String?
-  address   String?
-  phone     String?
-  email     String?
-  currency  String   @default("USD")
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  logo         String?
+  description  String?
+  address      String?
+  phone        String?
+  email        String?
+  openingHours String?  @map("opening_hours")
+  currency     String   @default("USD")
+  timezone     String   @default("UTC")
+  taxRate      Float    @default(0) @map("tax_rate") // percent, e.g. 8.875
+  // Per-restaurant ticket counter so order numbers start at 1 for every tenant.
+  orderCounter Int      @default(0) @map("order_counter")
+
+  acceptReservations Boolean @default(true) @map("accept_reservations")
+
+  // Billing
+  plan                 Plan               @default(STARTER)
+  subscriptionStatus   SubscriptionStatus @default(NONE) @map("subscription_status")
+  trialEndsAt          DateTime?          @map("trial_ends_at")
+  currentPeriodEnd     DateTime?          @map("current_period_end")
+  stripeCustomerId     String?            @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?            @unique @map("stripe_subscription_id")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  users              User[]
-  menuCategories     MenuCategory[]
-  menuItems          MenuItem[]
-  orders             Order[]
-  reservations       Reservation[]
-  inventoryItems     InventoryItem[]
+  users          User[]
+  menuCategories MenuCategory[]
+  menuItems      MenuItem[]
+  orders         Order[]
+  reservations   Reservation[]
+  inventoryItems InventoryItem[]
+  tables         DiningTable[]
 
   @@map("restaurants")
 }
@@ -71,13 +122,33 @@ model User {
   passwordHash String   @map("password_hash")
   role         Role     @default(STAFF)
   avatar       String?
+  phone        String?
   restaurantId String   @map("restaurant_id")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders     Order[]
 
+  @@index([restaurantId])
   @@map("users")
+}
+
+model DiningTable {
+  id           String      @id @default(cuid())
+  label        String
+  capacity     Int         @default(2)
+  area         String?
+  status       TableStatus @default(AVAILABLE)
+  restaurantId String      @map("restaurant_id")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders     Order[]
+
+  @@unique([restaurantId, label])
+  @@map("dining_tables")
 }
 
 model MenuCategory {
@@ -93,6 +164,7 @@ model MenuCategory {
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   menuItems  MenuItem[]
 
+  @@index([restaurantId])
   @@map("menu_categories")
 }
 
@@ -114,11 +186,12 @@ model MenuItem {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  category   MenuCategory      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  restaurant Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  category   MenuCategory       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  restaurant Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   discounts  MenuItemDiscount[]
   orderItems OrderItem[]
 
+  @@index([restaurantId])
   @@map("menu_items")
 }
 
@@ -138,34 +211,49 @@ model MenuItemDiscount {
 }
 
 model Order {
-  id           String      @id @default(cuid())
-  orderNumber  Int         @default(autoincrement()) @map("order_number")
-  restaurantId String      @map("restaurant_id")
-  tableNumber  String?     @map("table_number")
-  customerName String?     @map("customer_name")
-  status       OrderStatus @default(PENDING)
-  totalAmount  Float       @default(0) @map("total_amount")
-  notes        String?
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
+  id            String         @id @default(cuid())
+  orderNumber   Int            @map("order_number")
+  restaurantId  String         @map("restaurant_id")
+  tableId       String?        @map("table_id")
+  tableNumber   String?        @map("table_number") // label snapshot, kept for history
+  customerName  String?        @map("customer_name")
+  status        OrderStatus    @default(PENDING)
+  source        OrderSource    @default(POS)
+  subtotal      Float          @default(0)
+  taxAmount     Float          @default(0) @map("tax_amount")
+  tipAmount     Float          @default(0) @map("tip_amount")
+  totalAmount   Float          @default(0) @map("total_amount")
+  paymentMethod PaymentMethod? @map("payment_method")
+  paidAt        DateTime?      @map("paid_at")
+  readyAt       DateTime?      @map("ready_at")
+  notes         String?
+  createdById   String?        @map("created_by_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table      DiningTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  createdBy  User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
   orderItems OrderItem[]
 
+  @@unique([restaurantId, orderNumber])
+  @@index([restaurantId, createdAt])
+  @@index([restaurantId, status])
   @@map("orders")
 }
 
 model OrderItem {
-  id         String @id @default(cuid())
-  orderId    String @map("order_id")
-  menuItemId String @map("menu_item_id")
-  quantity   Int    @default(1)
+  id         String  @id @default(cuid())
+  orderId    String  @map("order_id")
+  menuItemId String  @map("menu_item_id")
+  quantity   Int     @default(1)
   price      Float
   notes      String?
 
   order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
 
+  @@index([orderId])
   @@map("order_items")
 }
 
@@ -185,6 +273,7 @@ model Reservation {
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
+  @@index([restaurantId, reservationTime])
   @@map("reservations")
 }
 
@@ -202,6 +291,7 @@ model InventoryItem {
   restaurant   Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   transactions InventoryTransaction[]
 
+  @@index([restaurantId])
   @@map("inventory_items")
 }
 

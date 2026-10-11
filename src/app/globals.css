@@ -4,11 +4,18 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Servora "Service Pass" design tokens.
+ * Ink structure, a single saffron accent, Geist for UI, Geist Mono for numbers,
+ * Bricolage Grotesque for display. The kitchen display and POS run in dark mode.
+ */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-bricolage), var(--font-geist), sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -16,6 +23,7 @@
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
   --color-sidebar: var(--sidebar);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
@@ -38,6 +46,17 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-danger-soft: var(--danger-soft);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -49,77 +68,104 @@
 
 :root {
   --radius: 0.625rem;
-  /* Premium Light Mode Palette */
-  --background: #FAF7F2;
-  --foreground: #1A1A1A;
-  --card: #FFFFFF;
-  --card-foreground: #1A1A1A;
-  --popover: #FFFFFF;
-  --popover-foreground: #1A1A1A;
-  --primary: #D4AF37;
-  --primary-foreground: #1A1A1A;
-  --secondary: #F5F0E8;
-  --secondary-foreground: #1A1A1A;
-  --muted: #F0EBE3;
-  --muted-foreground: #6B6B6B;
-  --accent: #D4AF37;
-  --accent-foreground: #1A1A1A;
-  --destructive: #DC2626;
-  --border: #E8E2D9;
-  --input: #E8E2D9;
-  --ring: #D4AF37;
-  --chart-1: #D4AF37;
-  --chart-2: #B8962E;
-  --chart-3: #9C7D25;
-  --chart-4: #8B6F1F;
-  --chart-5: #756119;
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #1A1A1A;
-  --sidebar-primary: #D4AF37;
-  --sidebar-primary-foreground: #1A1A1A;
-  --sidebar-accent: #F5F0E8;
-  --sidebar-accent-foreground: #1A1A1A;
-  --sidebar-border: #E8E2D9;
-  --sidebar-ring: #D4AF37;
-  --success: #16A34A;
-  --warning: #D97706;
+  --background: #fafaf7;
+  --foreground: #16150f;
+  --card: #ffffff;
+  --card-foreground: #16150f;
+  --popover: #ffffff;
+  --popover-foreground: #16150f;
+  --primary: #16150f;
+  --primary-foreground: #fafaf7;
+  --secondary: #f1efe8;
+  --secondary-foreground: #16150f;
+  --muted: #f1efe8;
+  --muted-foreground: #6b6a63;
+  --accent: #f1efe8;
+  --accent-foreground: #16150f;
+  --destructive: #c23a24;
+  --border: #e7e5de;
+  --input: #dcd9cf;
+  --ring: #f2a93b;
+
+  /* Saffron: the one accent. Use as a fill with ink text; brand-ink is its text-safe shade. */
+  --brand: #f2a93b;
+  --brand-foreground: #16150f;
+  --brand-soft: #fdf0da;
+  --brand-ink: #7a4f08;
+
+  --success: #1f6e43;
+  --success-soft: #e2f3e8;
+  --warning: #7a4f08;
+  --warning-soft: #fdf0da;
+  --info: #1f4e9e;
+  --info-soft: #e3ecfb;
+  --danger-soft: #fbe4df;
+
+  --chart-1: #f2a93b;
+  --chart-2: #16150f;
+  --chart-3: #8e8c84;
+  --chart-4: #1f4e9e;
+  --chart-5: #1f6e43;
+
+  --sidebar: #16150f;
+  --sidebar-foreground: #c9c7be;
+  --sidebar-muted: #75736b;
+  --sidebar-primary: #f2a93b;
+  --sidebar-primary-foreground: #16150f;
+  --sidebar-accent: #2a2922;
+  --sidebar-accent-foreground: #fafaf7;
+  --sidebar-border: #2a2922;
+  --sidebar-ring: #f2a93b;
 }
 
 .dark {
-  /* Premium Dark Mode Palette */
-  --background: #121212;
-  --foreground: #F5F5F5;
-  --card: #1E1E1E;
-  --card-foreground: #F5F5F5;
-  --popover: #1E1E1E;
-  --popover-foreground: #F5F5F5;
-  --primary: #D4AF37;
-  --primary-foreground: #121212;
-  --secondary: #2A2A2A;
-  --secondary-foreground: #F5F5F5;
-  --muted: #2A2A2A;
-  --muted-foreground: #A0A0A0;
-  --accent: #D4AF37;
-  --accent-foreground: #121212;
-  --destructive: #EF4444;
-  --border: #2A2A2A;
-  --input: #2A2A2A;
-  --ring: #D4AF37;
-  --chart-1: #E6C15A;
-  --chart-2: #D4AF37;
-  --chart-3: #B8962E;
-  --chart-4: #9C7D25;
-  --chart-5: #8B6F1F;
-  --sidebar: #1E1E1E;
-  --sidebar-foreground: #F5F5F5;
-  --sidebar-primary: #D4AF37;
-  --sidebar-primary-foreground: #121212;
-  --sidebar-accent: #2A2A2A;
-  --sidebar-accent-foreground: #F5F5F5;
-  --sidebar-border: #2A2A2A;
-  --sidebar-ring: #D4AF37;
-  --success: #22C55E;
-  --warning: #F59E0B;
+  --background: #111110;
+  --foreground: #f4f2ec;
+  --card: #1a1915;
+  --card-foreground: #f4f2ec;
+  --popover: #1e1d19;
+  --popover-foreground: #f4f2ec;
+  --primary: #f4f2ec;
+  --primary-foreground: #111110;
+  --secondary: #24231d;
+  --secondary-foreground: #f4f2ec;
+  --muted: #24231d;
+  --muted-foreground: #a3a199;
+  --accent: #2a2922;
+  --accent-foreground: #f4f2ec;
+  --destructive: #ff7a63;
+  --border: #2a2922;
+  --input: #34332c;
+  --ring: #f2a93b;
+
+  --brand: #f2a93b;
+  --brand-foreground: #111110;
+  --brand-soft: #3d2c0c;
+  --brand-ink: #f2a93b;
+
+  --success: #5cc98a;
+  --success-soft: #123321;
+  --warning: #f2a93b;
+  --warning-soft: #3d2c0c;
+  --info: #6ea8ff;
+  --info-soft: #142742;
+  --danger-soft: #5a1f15;
+
+  --chart-1: #f2a93b;
+  --chart-2: #f4f2ec;
+  --chart-3: #75736b;
+  --chart-4: #6ea8ff;
+  --chart-5: #5cc98a;
+
+  --sidebar: #0c0c0b;
+  --sidebar-foreground: #c9c7be;
+  --sidebar-muted: #75736b;
+  --sidebar-primary: #f2a93b;
+  --sidebar-primary-foreground: #111110;
+  --sidebar-accent: #24231d;
+  --sidebar-accent-foreground: #fafaf7;
+  --sidebar-border: #24231d;
+  --sidebar-ring: #f2a93b;
 }
 
 @layer base {
@@ -128,46 +174,44 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
   }
 }
 
 @layer utilities {
-  .animate-in {
-    animation: fadeIn 0.5s ease-out;
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.025em;
   }
-  
-  .fade-in-50 {
-    animation: fadeIn 0.5s ease-out 0.05s;
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
-  
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  .scrollbar-none {
+    scrollbar-width: none;
   }
-  
-  .glass-morphism {
-    @apply bg-white/10 backdrop-blur-xl border border-white/20;
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
-  
-  .dark .glass-morphism {
-    @apply bg-black/10 backdrop-blur-xl border border-white/10;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
   }
-  
-  .gradient-border {
-    @apply relative before:absolute before:inset-0 before:rounded-[inherit] before:p-[1px] before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent;
+  .print-area,
+  .print-area * {
+    visibility: visible;
   }
-  
-  .dark .gradient-border {
-    @apply before:via-white/10;
-  }
-  
-  .hover-lift {
-    @apply transition-all duration-300 hover:transform hover:scale-105 hover:shadow-xl;
+  .print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 80mm;
+    background: white !important;
+    color: black !important;
   }
 }

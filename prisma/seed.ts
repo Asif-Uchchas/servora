@@ -19,8 +19,16 @@ const prisma = new PrismaClient({
 async function main() {
     console.log("🌱 Seeding database...\n");
 
+    // Seeding wipes every tenant. Refuse on a database with real data unless explicitly asked.
+    const existing = await prisma.restaurant.count();
+    if (existing > 0 && process.env.SEED_RESET !== "true") {
+        console.error(`❌ Database already has ${existing} restaurant(s). Re-run with SEED_RESET=true to wipe and reseed.`);
+        process.exit(1);
+    }
+
     // ─── Clean existing data ─────────────────────────────────
     await prisma.inventoryTransaction.deleteMany();
+    await prisma.diningTable.deleteMany();
     await prisma.inventoryItem.deleteMany();
     await prisma.reservation.deleteMany();
     await prisma.orderItem.deleteMany();
@@ -37,7 +45,13 @@ async function main() {
     const restaurant = await prisma.restaurant.create({
         data: {
             name: "Servora Fine Dining",
-            logo: "/logo.png",
+            slug: "servora-fine-dining",
+            description: "Seasonal modern European cooking in the heart of the city.",
+            openingHours: "Tue–Sun · 12:00–23:00",
+            taxRate: 8.875,
+            plan: "PRO",
+            subscriptionStatus: "TRIALING",
+            trialEndsAt: new Date(Date.now() + 14 * 86_400_000),
             address: "123 Culinary Street, New York, NY 10001",
             phone: "+1 (555) 123-4567",
             email: "hello@servora.com",
@@ -49,7 +63,7 @@ async function main() {
     // ─── Users ───────────────────────────────────────────────
     const passwordHash = await hash("password123", 12);
 
-    const admin = await prisma.user.create({
+    await prisma.user.create({
         data: {
             name: "Alex Johnson",
             email: "admin@servora.com",
@@ -69,7 +83,7 @@ async function main() {
         },
     });
 
-    await prisma.user.create({
+    const staff = await prisma.user.create({
         data: {
             name: "James Wilson",
             email: "staff@servora.com",
@@ -189,6 +203,19 @@ async function main() {
     const statuses = ["PENDING", "PREPARING", "READY", "SERVED", "CANCELLED"] as const;
     const names = ["Emma Smith", "Liam Brown", "Olivia Davis", "Noah Garcia", "Ava Martinez", "Ethan Lee", "Sophia Chen", "Mason Kim", "Isabella Park", "Lucas Zhang"];
     const tables = ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "D1", "D2"];
+    const diningTables = await Promise.all(
+        tables.map((label) =>
+            prisma.diningTable.create({
+                data: {
+                    label,
+                    capacity: label.startsWith("D") ? 6 : 4,
+                    area: label.startsWith("C") ? "Patio" : "Main room",
+                    restaurantId: restaurant.id,
+                },
+            })
+        )
+    );
+    console.log("✅ Created", diningTables.length, "tables");
 
     for (let i = 0; i < 25; i++) {
         const daysAgo = Math.floor(Math.random() * 7);
@@ -207,15 +234,26 @@ async function main() {
             });
         }
 
-        const totalAmount = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const subtotal = Math.round(selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0) * 100) / 100;
+        const taxAmount = Math.round(subtotal * restaurant.taxRate) / 100;
+        const status = statuses[Math.floor(Math.random() * statuses.length)];
+        const paid = daysAgo > 0 && status !== "CANCELLED";
+        const table = diningTables[Math.floor(Math.random() * diningTables.length)];
 
         await prisma.order.create({
             data: {
                 restaurantId: restaurant.id,
-                tableNumber: tables[Math.floor(Math.random() * tables.length)],
+                orderNumber: i + 1,
+                tableId: paid ? null : table.id,
+                tableNumber: table.label,
                 customerName: names[Math.floor(Math.random() * names.length)],
-                status: statuses[Math.floor(Math.random() * statuses.length)],
-                totalAmount: Math.round(totalAmount * 100) / 100,
+                status: paid ? "PAID" : status,
+                subtotal,
+                taxAmount,
+                totalAmount: Math.round((subtotal + taxAmount) * 100) / 100,
+                paymentMethod: paid ? (Math.random() > 0.4 ? "CARD" : "CASH") : null,
+                paidAt: paid ? orderDate : null,
+                createdById: staff.id,
                 createdAt: orderDate,
                 orderItems: {
                     create: selectedItems,
@@ -223,6 +261,7 @@ async function main() {
             },
         });
     }
+    await prisma.restaurant.update({ where: { id: restaurant.id }, data: { orderCounter: 25 } });
     console.log("✅ Created 25 sample orders");
 
     // ─── Reservations ────────────────────────────────────────

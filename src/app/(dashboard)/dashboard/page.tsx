@@ -1,408 +1,235 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import {
-    DollarSign,
-    ShoppingBag,
-    CalendarDays,
-    AlertTriangle,
-    TrendingUp,
-    ArrowUpRight,
-    ArrowDownRight,
-    Clock,
-    Star,
-    Package,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { BookOpen, Plus, ReceiptText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-    AreaChart,
-    Area,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer,
-    BarChart,
-    Bar,
-} from "recharts";
-import { formatCurrency, getStatusColor } from "@/lib/utils";
+import { EmptyState, StatusBadge, TrendPill } from "@/components/shared";
+import { useMoney, useWorkspace } from "@/components/workspace-provider";
+import { getJson } from "@/lib/fetcher";
+import { cn, elapsed, formatOrderNumber } from "@/lib/utils";
+import { useNow } from "@/lib/use-now";
 import type { DashboardStats } from "@/types";
 
-const container = {
-    hidden: { opacity: 0 },
-    show: {
-        opacity: 1,
-        transition: { staggerChildren: 0.1 },
-    },
-};
-
-const item = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 },
-};
-
-function KpiCard({
-    title,
-    value,
-    icon: Icon,
-    trend,
-    trendValue,
-    color,
-}: {
-    title: string;
-    value: string;
-    icon: React.ElementType;
-    trend?: "up" | "down";
-    trendValue?: string;
-    color: string;
-}) {
-    const colorMap: Record<string, string> = {
-        gold: "from-primary to-[#B8962E]",
-        blue: "from-blue-500 to-cyan-500",
-        green: "from-emerald-500 to-green-500",
-        red: "from-red-500 to-rose-500",
-    };
-
-    const bgColorMap: Record<string, string> = {
-        gold: "bg-primary/10",
-        blue: "bg-blue-500/10",
-        green: "bg-emerald-500/10",
-        red: "bg-red-500/10",
-    };
-
-    const iconColorMap: Record<string, string> = {
-        gold: "#D4AF37",
-        blue: "#3b82f6",
-        green: "#10b981",
-        red: "#ef4444",
-    };
-
-    return (
-        <motion.div variants={item}>
-            <Card className="bg-card/50 hover:border-primary/20 transition-all duration-300 overflow-hidden group hover-lift">
-                <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                            <p className="text-sm text-muted-foreground font-medium">{title}</p>
-                            <p className="text-3xl font-bold mt-2 tracking-tight">{value}</p>
-                            {trend && trendValue && (
-                                <div className="flex items-center gap-1.5 mt-3">
-                                    <div
-                                        className={`flex items-center gap-0.5 text-xs font-medium ${
-                                            trend === "up" ? "text-green-500" : "text-destructive"
-                                        }`}
-                                    >
-                                        {trend === "up" ? (
-                                            <ArrowUpRight className="w-3.5 h-3.5" />
-                                        ) : (
-                                            <ArrowDownRight className="w-3.5 h-3.5" />
-                                        )}
-                                        {trendValue}
-                                    </div>
-                                    <span className="text-xs text-muted-foreground">vs last week</span>
-                                </div>
-                            )}
-                        </div>
-                        <div
-                            className={`w-12 h-12 rounded-2xl ${bgColorMap[color]} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}
-                        >
-                            <Icon className="w-6 h-6" style={{ color: iconColorMap[color] }} />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-        </motion.div>
-    );
+function greeting() {
+    const h = new Date().getHours();
+    return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 }
 
-function CustomTooltip({ active, payload, label }: any) {
-    if (!active || !payload) return null;
+function Kpi({ label, value, children }: { label: string; value: string; children?: React.ReactNode }) {
     return (
-        <div className="bg-popover border rounded-xl p-3 shadow-lg">
-            <p className="text-xs text-muted-foreground mb-1">{label}</p>
-            {payload.map((entry: any, index: number) => (
-                <p key={index} className="text-sm font-medium">
-                    {entry.name === "revenue" ? formatCurrency(entry.value) : `${entry.value} orders`}
-                </p>
-            ))}
-        </div>
+        <Card className="gap-2 p-5">
+            <span className="text-sm text-muted-foreground">{label}</span>
+            <span className="font-mono text-[28px] leading-none font-medium tabular">{value}</span>
+            {children}
+        </Card>
     );
 }
 
 export default function DashboardPage() {
-    const [stats, setStats] = useState<DashboardStats | null>(null);
-    const [loading, setLoading] = useState(true);
+    const { user, plan } = useWorkspace();
+    const money = useMoney();
+    const now = useNow();
+    const { data, isLoading } = useQuery({
+        queryKey: ["/api/dashboard"],
+        queryFn: getJson<DashboardStats>("/api/dashboard"),
+        refetchInterval: 30_000,
+    });
 
-    useEffect(() => {
-        fetch("/api/dashboard")
-            .then((res) => res.json())
-            .then((data) => {
-                setStats(data);
-                setLoading(false);
-            })
-            .catch(() => setLoading(false));
-    }, []);
-
-    if (loading) {
-        return (
-            <div className="space-y-6">
-                <div>
-                    <Skeleton className="h-8 w-48" />
-                    <Skeleton className="h-4 w-64 mt-2" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {[...Array(4)].map((_, i) => (
-                        <Skeleton key={i} className="h-36 rounded-xl" />
-                    ))}
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <Skeleton className="h-80 rounded-xl lg:col-span-2" />
-                    <Skeleton className="h-80 rounded-xl" />
-                </div>
-            </div>
-        );
-    }
+    const firstName = user.name.split(" ")[0];
 
     return (
-        <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-            {/* Header */}
-            <motion.div variants={item}>
-                <h1 className="text-2xl font-bold">Dashboard Overview</h1>
-                <p className="text-muted-foreground mt-1">Welcome back! Here&apos;s what&apos;s happening today.</p>
-            </motion.div>
-
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <KpiCard
-                    title="Today's Revenue"
-                    value={formatCurrency(stats?.todayRevenue || 0)}
-                    icon={DollarSign}
-                    trend="up"
-                    trendValue="12.5%"
-                    color="gold"
-                />
-                <KpiCard
-                    title="Orders Today"
-                    value={String(stats?.todayOrders || 0)}
-                    icon={ShoppingBag}
-                    trend="up"
-                    trendValue="8.2%"
-                    color="blue"
-                />
-                <KpiCard
-                    title="Active Reservations"
-                    value={String(stats?.activeReservations || 0)}
-                    icon={CalendarDays}
-                    color="green"
-                />
-                <KpiCard
-                    title="Low Stock Alerts"
-                    value={String(stats?.lowStockItems || 0)}
-                    icon={AlertTriangle}
-                    color="red"
-                />
+        <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <h1 className="font-display text-3xl font-extrabold">
+                        {greeting()}, {firstName}
+                    </h1>
+                    <p className="mt-1 text-muted-foreground">
+                        {new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+                        {data && plan.features.kitchen && ` · ${data.kitchenCount} tickets in the kitchen`}
+                    </p>
+                </div>
+                <Button asChild size="lg">
+                    <Link href="/pos">
+                        <Plus /> New order
+                    </Link>
+                </Button>
             </div>
 
-            {/* Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Revenue Chart */}
-                <motion.div variants={item} className="lg:col-span-2">
-                    <Card className="bg-card/50 border hover-lift">
-                        <CardHeader className="pb-2">
+            {isLoading || !data ? (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <Skeleton key={i} className="h-32 rounded-xl" />
+                    ))}
+                    <Skeleton className="h-80 rounded-xl sm:col-span-2" />
+                    <Skeleton className="h-80 rounded-xl sm:col-span-2" />
+                </div>
+            ) : (
+                <>
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        <Kpi label="Revenue today" value={money(data.today.revenue)}>
+                            <TrendPill change={data.today.revenueChange} suffix="vs last week" />
+                        </Kpi>
+                        <Kpi label="Orders" value={String(data.today.orders)}>
+                            <TrendPill change={data.today.ordersChange} suffix="vs last week" />
+                        </Kpi>
+                        <Kpi label="Average ticket" value={money(data.today.avgTicket)}>
+                            <TrendPill change={data.today.avgTicketChange} suffix="vs last week" />
+                        </Kpi>
+                        <Kpi label="Covers booked tonight" value={String(data.today.covers)}>
+                            <span className="text-sm text-muted-foreground">
+                                {plan.features.reservations
+                                    ? `${data.today.reservations} reservation${data.today.reservations === 1 ? "" : "s"}`
+                                    : "Reservations are on Pro"}
+                            </span>
+                        </Kpi>
+                    </div>
+
+                    <div className="grid gap-4 lg:grid-cols-2">
+                        <Card className="gap-4 p-5">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-base font-semibold">Revenue Overview</CardTitle>
-                                <div className="flex items-center gap-1.5 text-xs text-green-500 bg-green-500/10 rounded-full px-2.5 py-1">
-                                    <TrendingUp className="w-3.5 h-3.5" />
-                                    <span className="font-medium">+12.5%</span>
-                                </div>
+                                <h2 className="font-semibold">Revenue, last 7 days</h2>
+                                <span className="font-mono text-sm text-muted-foreground">{money(data.weekRevenue)}</span>
                             </div>
-                            <p className="text-xs text-muted-foreground">Last 7 days performance</p>
-                        </CardHeader>
-                        <CardContent>
-                            <ResponsiveContainer width="100%" height={280}>
-                                <AreaChart data={stats?.revenueData || []}>
-                                    <defs>
-                                        <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="#D4AF37" stopOpacity={0.3} />
-                                            <stop offset="100%" stopColor="#D4AF37" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                    <XAxis
-                                        dataKey="date"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                                    />
-                                    <YAxis
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                                        tickFormatter={(v) => `$${v}`}
-                                    />
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Area
-                                        type="monotone"
-                                        dataKey="revenue"
-                                        stroke="#D4AF37"
-                                        strokeWidth={2.5}
-                                        fill="url(#revenueGradient)"
-                                    />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </CardContent>
-                    </Card>
-                </motion.div>
+                            <div className="h-56">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={data.revenueData} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
+                                        <XAxis
+                                            dataKey="date"
+                                            tickFormatter={(d) => new Date(d).toLocaleDateString(undefined, { weekday: "short" })}
+                                            tickLine={false}
+                                            axisLine={false}
+                                            tick={{ fill: "var(--muted-foreground)", fontSize: 12, fontFamily: "var(--font-mono)" }}
+                                        />
+                                        <Tooltip
+                                            cursor={{ fill: "var(--muted)" }}
+                                            content={({ active, payload }) =>
+                                                active && payload?.[0] ? (
+                                                    <div className="rounded-lg border bg-popover px-3 py-2 text-sm shadow-md">
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {new Date(payload[0].payload.date).toLocaleDateString(undefined, {
+                                                                weekday: "long",
+                                                                month: "short",
+                                                                day: "numeric",
+                                                            })}
+                                                        </p>
+                                                        <p className="font-mono font-medium">{money(payload[0].payload.revenue)}</p>
+                                                        <p className="text-xs text-muted-foreground">{payload[0].payload.orders} orders</p>
+                                                    </div>
+                                                ) : null
+                                            }
+                                        />
+                                        <Bar dataKey="revenue" radius={[6, 6, 6, 6]}>
+                                            {data.revenueData.map((d, i) => (
+                                                <Cell key={d.date} fill={i === data.revenueData.length - 1 ? "var(--brand)" : "var(--muted)"} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </Card>
 
-                {/* Orders Chart */}
-                <motion.div variants={item}>
-                    <Card className="bg-card/50 border h-full">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-base font-semibold">Orders This Week</CardTitle>
-                            <p className="text-xs text-muted-foreground">Daily order count</p>
-                        </CardHeader>
-                        <CardContent>
-                            <ResponsiveContainer width="100%" height={280}>
-                                <BarChart data={stats?.revenueData || []}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                    <XAxis
-                                        dataKey="date"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                                    />
-                                    <YAxis
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                                    />
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Bar dataKey="orders" fill="#D4AF37" radius={[6, 6, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </CardContent>
-                    </Card>
-                </motion.div>
-            </div>
-
-            {/* Bottom Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Popular Items */}
-                <motion.div variants={item} className="lg:col-span-1">
-                    <Card className="bg-card/50 border h-full">
-                        <CardHeader>
-                            <CardTitle className="text-base font-semibold flex items-center gap-2">
-                                <Star className="w-4 h-4 text-primary" />
-                                Popular Items
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {(stats?.popularItems || []).map((menuItem, index) => (
-                                <div
-                                    key={menuItem.id}
-                                    className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                                >
-                                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                                        {index + 1}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium truncate">{menuItem.name}</p>
-                                        <p className="text-xs text-muted-foreground">{menuItem.totalOrders} orders</p>
-                                    </div>
-                                    <p className="text-sm font-semibold">
-                                        {formatCurrency(menuItem.revenue)}
-                                    </p>
-                                </div>
-                            ))}
-                            {(!stats?.popularItems || stats.popularItems.length === 0) && (
-                                <p className="text-sm text-muted-foreground text-center py-4">No data yet</p>
+                        <Card className="gap-1 p-5">
+                            <div className="mb-2 flex items-center justify-between">
+                                <h2 className="font-semibold">Live orders</h2>
+                                <Link href={plan.features.kitchen ? "/kitchen" : "/dashboard/orders"} className="text-sm underline-offset-4 hover:underline">
+                                    {plan.features.kitchen ? "Open kitchen" : "All orders"}
+                                </Link>
+                            </div>
+                            {data.liveOrders.length === 0 ? (
+                                <EmptyState icon={ReceiptText} title="No open orders" description="New orders from the POS show up here." className="py-10" />
+                            ) : (
+                                <ul className="divide-y">
+                                    {data.liveOrders.map((o) => {
+                                        const late = o.status !== "SERVED" && now - new Date(o.createdAt).getTime() > 20 * 60_000;
+                                        return (
+                                            <li key={o.id} className="flex items-center justify-between gap-3 py-3">
+                                                <div className="min-w-0">
+                                                    <p className="font-mono text-sm">
+                                                        {formatOrderNumber(o.orderNumber)} · {o.tableNumber ? `Table ${o.tableNumber}` : "Takeaway"}
+                                                    </p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {o.items.reduce((s, i) => s + i.quantity, 0)} items · {elapsed(o.createdAt, now)}
+                                                    </p>
+                                                </div>
+                                                {late ? (
+                                                    <span className="rounded-full bg-danger-soft px-2.5 py-0.5 text-xs font-semibold text-destructive">Late</span>
+                                                ) : (
+                                                    <StatusBadge status={o.status} />
+                                                )}
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
                             )}
-                        </CardContent>
-                    </Card>
-                </motion.div>
+                        </Card>
+                    </div>
 
-                {/* Recent Orders */}
-                <motion.div variants={item} className="lg:col-span-1">
-                    <Card className="bg-card/50 border h-full">
-                        <CardHeader>
-                            <CardTitle className="text-base font-semibold flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-blue-400" />
-                                Recent Orders
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {(stats?.recentOrders || []).map((order) => (
-                                <div
-                                    key={order.id}
-                                    className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                                >
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium">
-                                            #{order.orderNumber}
-                                            {order.customerName && ` • ${order.customerName}`}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            Table {order.tableNumber || "N/A"} • {order.orderItems.length} items
-                                        </p>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                        <Card className="gap-3 p-5">
+                            <h2 className="font-semibold">Best sellers this week</h2>
+                            {data.topItems.length === 0 ? (
+                                <EmptyState icon={BookOpen} title="No sales yet this week" className="py-10" />
+                            ) : (
+                                data.topItems.map((item) => (
+                                    <div key={item.id} className="flex flex-col gap-1.5">
+                                        <div className="flex justify-between text-sm">
+                                            <span>{item.name}</span>
+                                            <span className="font-mono">{item.quantity} sold</span>
+                                        </div>
+                                        <div className="h-1.5 rounded-full bg-muted">
+                                            <div
+                                                className="h-1.5 rounded-full bg-primary"
+                                                style={{ width: `${(item.quantity / data.topItems[0].quantity) * 100}%` }}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-sm font-semibold">
-                                            {formatCurrency(order.totalAmount)}
-                                        </p>
-                                        <Badge variant="outline" className={`text-[10px] ${getStatusColor(order.status)}`}>
-                                            {order.status}
-                                        </Badge>
-                                    </div>
-                                </div>
-                            ))}
-                            {(!stats?.recentOrders || stats.recentOrders.length === 0) && (
-                                <p className="text-sm text-muted-foreground text-center py-4">No orders yet</p>
+                                ))
                             )}
-                        </CardContent>
-                    </Card>
-                </motion.div>
+                        </Card>
 
-                {/* Low Stock Alerts */}
-                <motion.div variants={item} className="lg:col-span-1">
-                    <Card className="bg-card/50 border h-full">
-                        <CardHeader>
-                            <CardTitle className="text-base font-semibold flex items-center gap-2">
-                                <Package className="w-4 h-4 text-red-400" />
-                                Low Stock Alerts
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {(stats?.lowStockAlerts || []).map((stockItem) => (
-                                <div
-                                    key={stockItem.id}
-                                    className="flex items-center gap-3 p-3 rounded-xl bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-colors"
-                                >
-                                    <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
-                                        <AlertTriangle className="w-4 h-4 text-red-400" />
+                        <Card className="gap-2 p-5">
+                            <div className="mb-1 flex items-center justify-between">
+                                <h2 className="font-semibold">Running low</h2>
+                                {plan.features.inventory && (
+                                    <Link href="/dashboard/inventory" className="text-sm underline-offset-4 hover:underline">
+                                        Inventory
+                                    </Link>
+                                )}
+                            </div>
+                            {!plan.features.inventory ? (
+                                <p className="py-8 text-center text-sm text-muted-foreground">
+                                    Stock tracking is on the Pro plan.{" "}
+                                    <Link href="/dashboard/billing" className="underline">
+                                        See plans
+                                    </Link>
+                                </p>
+                            ) : data.lowStock.length === 0 ? (
+                                <p className="py-8 text-center text-sm text-muted-foreground">Everything is stocked above its minimum.</p>
+                            ) : (
+                                data.lowStock.slice(0, 5).map((i) => (
+                                    <div
+                                        key={i.id}
+                                        className={cn(
+                                            "flex items-center justify-between rounded-lg px-3 py-2.5",
+                                            i.quantity === 0 ? "bg-danger-soft" : "bg-warning-soft"
+                                        )}
+                                    >
+                                        <span className="text-sm">{i.name}</span>
+                                        <span className={cn("font-mono text-sm", i.quantity === 0 ? "text-destructive" : "text-warning")}>
+                                            {i.quantity} / {i.minimumQuantity} {i.unit}
+                                        </span>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium truncate">{stockItem.name}</p>
-                                        <p className="text-xs text-red-400">
-                                            {stockItem.quantity} {stockItem.unit} left (min: {stockItem.minimumQuantity})
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
-                            {(!stats?.lowStockAlerts || stats.lowStockAlerts.length === 0) && (
-                                <div className="text-center py-4">
-                                    <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-2">
-                                        <Package className="w-5 h-5 text-green-400" />
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">All stock levels OK</p>
-                                </div>
+                                ))
                             )}
-                        </CardContent>
-                    </Card>
-                </motion.div>
-            </div>
-        </motion.div>
+                        </Card>
+                    </div>
+                </>
+            )}
+        </div>
     );
 }

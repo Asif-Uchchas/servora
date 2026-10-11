@@ -1,115 +1,97 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import type { OrderStatus, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { ApiError, json, parseBody, withAuth } from "@/lib/api";
+import { createOrderSchema, orderStatusSchema } from "@/lib/validations";
+import { KITCHEN_STATUSES, OPEN_STATUSES, orderInclude, serializeOrder } from "@/lib/orders";
+import { computeTotals, effectivePrice, roundMoney } from "@/lib/pricing";
 
-// GET - Fetch all orders
-export async function GET(req: NextRequest) {
-    try {
-        const restaurant = await db.restaurant.findFirst();
-        if (!restaurant) {
-            return NextResponse.json({ error: "No restaurant found" }, { status: 404 });
-        }
+// GET /api/orders?scope=open|kitchen|all&status=PAID&limit=100
+export const GET = withAuth(async (req, { restaurantId }) => {
+    const { searchParams } = req.nextUrl;
+    const scope = searchParams.get("scope") ?? "all";
+    const status = searchParams.get("status");
+    const limit = Math.min(Number(searchParams.get("limit")) || 200, 500);
 
-        const orders = await db.order.findMany({
-            where: { restaurantId: restaurant.id },
-            include: {
-                orderItems: {
-                    include: {
-                        menuItem: {
-                            select: { id: true, name: true, image: true },
-                        },
-                    },
-                },
-            },
-            orderBy: { createdAt: "desc" },
+    const where: Prisma.OrderWhereInput = { restaurantId };
+    if (scope === "open") where.status = { in: OPEN_STATUSES };
+    else if (scope === "kitchen") where.status = { in: KITCHEN_STATUSES };
+    if (status) where.status = orderStatusSchema.parse(status) as OrderStatus;
+
+    const orders = await db.order.findMany({
+        where,
+        include: orderInclude,
+        orderBy: { createdAt: scope === "kitchen" ? "asc" : "desc" },
+        take: limit,
+    });
+    return json(orders.map(serializeOrder));
+});
+
+// POST /api/orders — prices and tax are always computed here, never trusted from the client.
+export const POST = withAuth(async (req: NextRequest, { restaurantId, userId }) => {
+    const input = await parseBody(req, createOrderSchema);
+
+    const ids = [...new Set(input.items.map((i) => i.menuItemId))];
+    const menuItems = await db.menuItem.findMany({
+        where: { id: { in: ids }, restaurantId },
+        include: { discounts: { where: { isActive: true } } },
+    });
+    const byId = new Map(menuItems.map((m) => [m.id, m]));
+
+    const lines = input.items.map((line) => {
+        const item = byId.get(line.menuItemId);
+        if (!item) throw new ApiError(400, "One of the items is no longer on the menu");
+        if (!item.isAvailable) throw new ApiError(409, `${item.name} is sold out`);
+        return { ...line, price: effectivePrice(item) };
+    });
+
+    const table = input.tableId
+        ? await db.diningTable.findFirst({ where: { id: input.tableId, restaurantId } })
+        : null;
+    if (input.tableId && !table) throw new ApiError(400, "Table not found");
+
+    const subtotal = roundMoney(lines.reduce((sum, l) => sum + l.price * l.quantity, 0));
+
+    const order = await db.$transaction(async (tx) => {
+        const restaurant = await tx.restaurant.update({
+            where: { id: restaurantId },
+            data: { orderCounter: { increment: 1 } },
+            select: { orderCounter: true, taxRate: true },
         });
+        const totals = computeTotals(subtotal, restaurant.taxRate, input.payment?.tip ?? 0);
 
-        return NextResponse.json(orders);
-    } catch (error) {
-        console.error("Orders GET error:", error);
-        return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });
-    }
-}
-
-// POST - Create a new order
-export async function POST(req: NextRequest) {
-    try {
-        const body = await req.json();
-        const { restaurantId, tableNumber, customerName, notes, items } = body;
-
-        // Calculate total amount
-        let totalAmount = 0;
-        const orderItemsData = [];
-
-        for (const item of items) {
-            const menuItem = await db.menuItem.findUnique({ where: { id: item.menuItemId } });
-            if (!menuItem) continue;
-
-            const price = menuItem.offerPrice || menuItem.price;
-            totalAmount += price * item.quantity;
-            orderItemsData.push({
-                menuItemId: item.menuItemId,
-                quantity: item.quantity,
-                price: price,
-                notes: item.notes,
-            });
-        }
-
-        const order = await db.order.create({
+        const created = await tx.order.create({
             data: {
                 restaurantId,
-                tableNumber,
-                customerName,
-                notes,
-                totalAmount,
+                orderNumber: restaurant.orderCounter,
+                tableId: table?.id ?? null,
+                tableNumber: table?.label ?? null,
+                customerName: input.customerName,
+                notes: input.notes,
+                createdById: userId,
+                ...totals,
+                ...(input.payment && {
+                    status: "PAID",
+                    paymentMethod: input.payment.method,
+                    paidAt: new Date(),
+                }),
                 orderItems: {
-                    create: orderItemsData,
+                    create: lines.map((l) => ({
+                        menuItemId: l.menuItemId,
+                        quantity: l.quantity,
+                        price: l.price,
+                        notes: l.notes,
+                    })),
                 },
             },
-            include: {
-                orderItems: {
-                    include: {
-                        menuItem: {
-                            select: { id: true, name: true, image: true },
-                        },
-                    },
-                },
-            },
+            include: orderInclude,
         });
 
-        return NextResponse.json(order, { status: 201 });
-    } catch (error) {
-        console.error("Orders POST error:", error);
-        return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
-    }
-}
-
-// PUT - Update order status
-export async function PUT(req: NextRequest) {
-    try {
-        const body = await req.json();
-        const { id, status } = body;
-
-        if (!id || !status) {
-            return NextResponse.json({ error: "Order ID and status required" }, { status: 400 });
+        if (table && !input.payment) {
+            await tx.diningTable.update({ where: { id: table.id }, data: { status: "OCCUPIED" } });
         }
+        return created;
+    });
 
-        const order = await db.order.update({
-            where: { id },
-            data: { status },
-            include: {
-                orderItems: {
-                    include: {
-                        menuItem: {
-                            select: { id: true, name: true, image: true },
-                        },
-                    },
-                },
-            },
-        });
-
-        return NextResponse.json(order);
-    } catch (error) {
-        console.error("Orders PUT error:", error);
-        return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
-    }
-}
+    return json(serializeOrder(order), 201);
+});

@@ -1,150 +1,126 @@
-import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { json, withAuth } from "@/lib/api";
+import { getEntitlements } from "@/lib/plans";
+import { KITCHEN_STATUSES, OPEN_STATUSES, orderInclude, serializeOrder } from "@/lib/orders";
+import { roundMoney } from "@/lib/pricing";
 
-export async function GET() {
-    try {
-        // Get the first restaurant (for demo)
-        const restaurant = await db.restaurant.findFirst();
-        if (!restaurant) {
-            return NextResponse.json({ error: "No restaurant found" }, { status: 404 });
-        }
+const DAY = 86_400_000;
 
-        const restaurantId = restaurant.id;
+function startOfDay(d: Date) {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+}
 
-        // Today's date range
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
+function pctChange(current: number, previous: number) {
+    if (previous === 0) return current === 0 ? 0 : null; // null = "new", no meaningful percentage
+    return Math.round(((current - previous) / previous) * 1000) / 10;
+}
 
-        // Get today's orders
-        const todayOrders = await db.order.findMany({
-            where: {
-                restaurantId,
-                createdAt: { gte: today, lt: tomorrow },
-            },
-        });
+export const GET = withAuth(async (_req, { restaurantId }) => {
+    const now = new Date();
+    const today = startOfDay(now);
+    const tomorrow = new Date(today.getTime() + DAY);
+    const lastWeekDay = new Date(today.getTime() - 7 * DAY);
+    const lastWeekDayEnd = new Date(lastWeekDay.getTime() + (now.getTime() - today.getTime())); // same time of day
+    const weekStart = new Date(today.getTime() - 6 * DAY);
 
-        const todayRevenue = todayOrders
-            .filter((o) => o.status !== "CANCELLED")
-            .reduce((sum, o) => sum + o.totalAmount, 0);
+    const sales = { restaurantId, status: { not: "CANCELLED" as const } };
 
-        // Get total statistics
-        const totalOrders = await db.order.count({ where: { restaurantId } });
-        const allOrders = await db.order.findMany({
-            where: { restaurantId, status: { not: "CANCELLED" } },
-            select: { totalAmount: true },
-        });
-        const totalRevenue = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+    const restaurant = await db.restaurant.findUniqueOrThrow({ where: { id: restaurantId } });
+    const { features } = getEntitlements(restaurant);
 
-        // Active reservations
-        const activeReservations = await db.reservation.count({
-            where: {
-                restaurantId,
-                status: { in: ["CONFIRMED", "PENDING"] },
-                reservationTime: { gte: new Date() },
-            },
-        });
-
-        // Low stock items
-        const lowStockItems = await db.inventoryItem.findMany({
-            where: {
-                restaurantId,
-                quantity: { lte: db.inventoryItem.fields.minimumQuantity as unknown as number },
-            },
-        });
-
-        // Workaround: fetch all and filter
-        const allInventory = await db.inventoryItem.findMany({
-            where: { restaurantId },
-        });
-        const lowStock = allInventory.filter((i) => i.quantity <= i.minimumQuantity);
-
-        // Popular items (top 5 by order count)
-        const popularItems = await db.orderItem.groupBy({
-            by: ["menuItemId"],
-            _count: { id: true },
-            _sum: { price: true },
-            orderBy: { _count: { id: "desc" } },
-            take: 5,
-        });
-
-        const popularItemDetails = await Promise.all(
-            popularItems.map(async (item) => {
-                const menuItem = await db.menuItem.findUnique({
-                    where: { id: item.menuItemId },
-                    select: { id: true, name: true, image: true },
-                });
-                return {
-                    id: menuItem?.id || "",
-                    name: menuItem?.name || "Unknown",
-                    image: menuItem?.image || null,
-                    totalOrders: item._count.id,
-                    revenue: item._sum.price || 0,
-                };
-            })
-        );
-
-        // Revenue data (last 7 days)
-        const revenueData = [];
-        for (let i = 6; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            date.setHours(0, 0, 0, 0);
-            const nextDay = new Date(date);
-            nextDay.setDate(nextDay.getDate() + 1);
-
-            const dayOrders = await db.order.findMany({
+    const [todayAgg, lastWeekAgg, weekOrders, liveOrders, kitchenCount, reservations, topItems, inventory] =
+        await Promise.all([
+            db.order.aggregate({
+                where: { ...sales, createdAt: { gte: today, lt: tomorrow } },
+                _sum: { totalAmount: true },
+                _count: true,
+            }),
+            db.order.aggregate({
+                where: { ...sales, createdAt: { gte: lastWeekDay, lt: lastWeekDayEnd } },
+                _sum: { totalAmount: true },
+                _count: true,
+            }),
+            db.order.findMany({
+                where: { ...sales, createdAt: { gte: weekStart, lt: tomorrow } },
+                select: { createdAt: true, totalAmount: true },
+            }),
+            db.order.findMany({
+                where: { restaurantId, status: { in: OPEN_STATUSES } },
+                include: orderInclude,
+                orderBy: { createdAt: "asc" },
+                take: 6,
+            }),
+            db.order.count({ where: { restaurantId, status: { in: KITCHEN_STATUSES } } }),
+            db.reservation.findMany({
                 where: {
                     restaurantId,
-                    createdAt: { gte: date, lt: nextDay },
-                    status: { not: "CANCELLED" },
+                    status: { in: ["CONFIRMED", "PENDING"] },
+                    reservationTime: { gte: now, lt: tomorrow },
                 },
-            });
+                select: { guests: true, status: true },
+            }),
+            db.orderItem.groupBy({
+                by: ["menuItemId"],
+                where: { order: { ...sales, createdAt: { gte: weekStart } } },
+                _sum: { quantity: true },
+                orderBy: { _sum: { quantity: "desc" } },
+                take: 5,
+            }),
+            features.inventory
+                ? db.inventoryItem.findMany({
+                      where: { restaurantId },
+                      select: { id: true, name: true, quantity: true, unit: true, minimumQuantity: true },
+                  })
+                : Promise.resolve([]),
+        ]);
 
-            revenueData.push({
-                date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-                revenue: dayOrders.reduce((sum, o) => sum + o.totalAmount, 0),
-                orders: dayOrders.length,
-            });
-        }
+    const names = await db.menuItem.findMany({
+        where: { id: { in: topItems.map((t) => t.menuItemId) } },
+        select: { id: true, name: true, image: true },
+    });
+    const nameById = new Map(names.map((n) => [n.id, n]));
 
-        // Recent orders
-        const recentOrders = await db.order.findMany({
-            where: { restaurantId },
-            include: {
-                orderItems: {
-                    include: {
-                        menuItem: {
-                            select: { id: true, name: true, image: true },
-                        },
-                    },
-                },
-            },
-            orderBy: { createdAt: "desc" },
-            take: 5,
-        });
+    const revenueData = Array.from({ length: 7 }, (_, i) => {
+        const day = new Date(weekStart.getTime() + i * DAY);
+        const next = new Date(day.getTime() + DAY);
+        const dayOrders = weekOrders.filter((o) => o.createdAt >= day && o.createdAt < next);
+        return {
+            date: day.toISOString(),
+            revenue: roundMoney(dayOrders.reduce((s, o) => s + o.totalAmount, 0)),
+            orders: dayOrders.length,
+        };
+    });
 
-        return NextResponse.json({
-            totalRevenue,
-            todayRevenue,
-            totalOrders,
-            todayOrders: todayOrders.length,
-            activeReservations,
-            lowStockItems: lowStock.length,
-            popularItems: popularItemDetails,
-            revenueData,
-            recentOrders,
-            lowStockAlerts: lowStock.map((i) => ({
-                id: i.id,
-                name: i.name,
-                quantity: i.quantity,
-                unit: i.unit,
-                minimumQuantity: i.minimumQuantity,
-            })),
-        });
-    } catch (error) {
-        console.error("Dashboard API error:", error);
-        return NextResponse.json({ error: "Failed to fetch dashboard data" }, { status: 500 });
-    }
-}
+    const todayRevenue = roundMoney(todayAgg._sum.totalAmount ?? 0);
+    const lastWeekRevenue = roundMoney(lastWeekAgg._sum.totalAmount ?? 0);
+    const avgTicket = todayAgg._count ? roundMoney(todayRevenue / todayAgg._count) : 0;
+    const lastWeekAvg = lastWeekAgg._count ? lastWeekRevenue / lastWeekAgg._count : 0;
+
+    return json({
+        currency: restaurant.currency,
+        today: {
+            revenue: todayRevenue,
+            revenueChange: pctChange(todayRevenue, lastWeekRevenue),
+            orders: todayAgg._count,
+            ordersChange: pctChange(todayAgg._count, lastWeekAgg._count),
+            avgTicket,
+            avgTicketChange: pctChange(avgTicket, lastWeekAvg),
+            covers: reservations.reduce((s, r) => s + r.guests, 0),
+            reservations: reservations.length,
+        },
+        weekRevenue: roundMoney(revenueData.reduce((s, d) => s + d.revenue, 0)),
+        revenueData,
+        kitchenCount,
+        liveOrders: liveOrders.map(serializeOrder),
+        topItems: topItems.map((t) => ({
+            id: t.menuItemId,
+            name: nameById.get(t.menuItemId)?.name ?? "Deleted item",
+            image: nameById.get(t.menuItemId)?.image ?? null,
+            quantity: t._sum.quantity ?? 0,
+        })),
+        lowStock: inventory.filter((i) => i.quantity <= i.minimumQuantity),
+        features,
+    });
+});

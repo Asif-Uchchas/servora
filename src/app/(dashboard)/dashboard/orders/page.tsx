@@ -1,336 +1,277 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-    Search,
-    Clock,
-    Check,
-    X,
-    ChefHat,
-    Package,
-    MoreHorizontal,
-    Eye,
-    RefreshCw,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Download, Lock, Printer, ReceiptText, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { formatCurrency, formatDateTime, getStatusColor } from "@/lib/utils";
-import type { OrderWithItems } from "@/types";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { EmptyState, PageHeader, StatusBadge } from "@/components/shared";
+import { PaymentDialog } from "@/components/pos/payment-dialog";
+import { Receipt } from "@/components/pos/receipt";
+import { useMoney, useWorkspace } from "@/components/workspace-provider";
+import { api, getJson } from "@/lib/fetcher";
+import { cn, formatOrderNumber } from "@/lib/utils";
+import { useNow } from "@/lib/use-now";
+import type { Order, OrderStatus } from "@/types";
 
-const ORDER_STATUS = ['PENDING', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'] as const;
-const STATUS_ICONS = {
-    PENDING: Clock,
-    PREPARING: ChefHat,
-    READY: Package,
-    SERVED: Check,
-    CANCELLED: X,
-};
+const FILTERS: { id: "all" | "open" | OrderStatus; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "open", label: "Open" },
+    { id: "PAID", label: "Paid" },
+    { id: "CANCELLED", label: "Cancelled" },
+];
+const OPEN: OrderStatus[] = ["PENDING", "PREPARING", "READY", "SERVED"];
+const RANGES = { today: 1, "7d": 7, "30d": 30, all: Infinity } as const;
 
-const container = {
-    hidden: { opacity: 0 },
-    show: {
-        opacity: 1,
-        transition: { staggerChildren: 0.1 },
-    },
-};
-
-const item = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 },
-};
+function toCsv(orders: Order[]) {
+    const header = ["order", "created_at", "status", "table", "guest", "items", "subtotal", "tax", "tip", "total", "payment"];
+    const rows = orders.map((o) => [
+        o.orderNumber,
+        o.createdAt,
+        o.status,
+        o.tableNumber ?? "",
+        o.customerName ?? "",
+        o.items.map((i) => `${i.quantity}x ${i.name}`).join("; "),
+        o.subtotal,
+        o.taxAmount,
+        o.tipAmount,
+        o.totalAmount,
+        o.paymentMethod ?? "",
+    ]);
+    return [header, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+}
 
 export default function OrdersPage() {
-    const [orders, setOrders] = useState<OrderWithItems[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [selectedStatus, setSelectedStatus] = useState<string>("all");
-    const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
+    const { restaurant, plan } = useWorkspace();
+    const money = useMoney();
+    const queryClient = useQueryClient();
+    const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
+    const [range, setRange] = useState<keyof typeof RANGES>("7d");
+    const [search, setSearch] = useState("");
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [settling, setSettling] = useState(false);
+    const now = useNow(60_000);
 
-    useEffect(() => {
-        fetchOrders();
-    }, []);
-
-    const fetchOrders = async () => {
-        try {
-            const response = await fetch("/api/orders");
-            const data = await response.json();
-            setOrders(data);
-        } catch (error) {
-            console.error("Failed to fetch orders:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const updateOrderStatus = async (orderId: string, status: string) => {
-        try {
-            const response = await fetch(`/api/orders/${orderId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status }),
-            });
-            
-            if (response.ok) {
-                await fetchOrders();
-            }
-        } catch (error) {
-            console.error("Failed to update order status:", error);
-        }
-    };
-
-    const filteredOrders = orders.filter(order => {
-        const matchesSearch = 
-            order.orderNumber.toString().includes(searchTerm.toLowerCase()) ||
-            order.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.tableNumber?.toLowerCase().includes(searchTerm.toLowerCase());
-        
-        const matchesStatus = selectedStatus === "all" || order.status === selectedStatus;
-        
-        return matchesSearch && matchesStatus;
+    const { data: orders = [], isLoading } = useQuery({
+        queryKey: ["/api/orders?limit=500"],
+        queryFn: getJson<Order[]>("/api/orders?limit=500"),
+        refetchInterval: 20_000,
     });
 
-    const ordersByStatus = ORDER_STATUS.map(status => ({
-        status,
-        icon: STATUS_ICONS[status],
-        orders: filteredOrders.filter(order => order.status === status),
-        color: getStatusColor(status),
-    }));
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        const since = now - RANGES[range] * 86_400_000;
+        return orders.filter((o) => {
+            if (range === "today" ? new Date(o.createdAt).toDateString() !== new Date().toDateString() : new Date(o.createdAt).getTime() < since) return false;
+            if (filter === "open" ? !OPEN.includes(o.status) : filter !== "all" && o.status !== filter) return false;
+            return (
+                !q ||
+                String(o.orderNumber).includes(q.replace("#", "")) ||
+                o.customerName?.toLowerCase().includes(q) ||
+                o.tableNumber?.toLowerCase().includes(q) ||
+                o.items.some((i) => i.name.toLowerCase().includes(q))
+            );
+        });
+    }, [orders, filter, range, search, now]);
 
-    if (loading) {
-        return (
-            <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                    <h1 className="text-3xl font-bold text-white">Orders</h1>
-                    <Skeleton className="h-10 w-32" />
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                    {ORDER_STATUS.map(status => (
-                        <Card key={status} className="bg-zinc-900 border-zinc-800">
-                            <CardHeader className="pb-3">
-                                <Skeleton className="h-6 w-20" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-3">
-                                    {[1, 2, 3].map(i => (
-                                        <Skeleton key={i} className="h-20 w-full" />
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
-            </div>
-        );
-    }
+    const selected = orders.find((o) => o.id === selectedId) ?? null;
+    const revenue = filtered.filter((o) => o.status !== "CANCELLED").reduce((s, o) => s + o.totalAmount, 0);
+
+    const refresh = () => queryClient.invalidateQueries({ queryKey: ["/api/orders?limit=500"] });
+
+    const setStatus = async (order: Order, status: OrderStatus) => {
+        try {
+            await api(`/api/orders/${order.id}`, { method: "PATCH", json: { status } });
+            toast.success(status === "CANCELLED" ? "Order cancelled" : "Order updated");
+            refresh();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Couldn't update the order");
+        }
+    };
+
+    const exportCsv = () => {
+        const blob = new Blob([toCsv(filtered)], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = Object.assign(document.createElement("a"), { href: url, download: `orders-${new Date().toISOString().slice(0, 10)}.csv` });
+        a.click();
+        URL.revokeObjectURL(url);
+    };
 
     return (
-        <motion.div
-            variants={container}
-            initial="hidden"
-            animate="show"
-            className="space-y-6"
-        >
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <h1 className="text-3xl font-bold text-white">Orders</h1>
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                        <Input
-                            placeholder="Search orders..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder-zinc-500 w-64"
-                        />
-                    </div>
-                    <Button className="bg-zinc-800 hover:bg-zinc-700 text-white">
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Refresh
-                    </Button>
-                </div>
-            </div>
+        <div className="flex flex-col gap-6">
+            <PageHeader
+                title="Orders"
+                description={`${filtered.length} orders · ${money(revenue)} in sales`}
+                actions={
+                    plan.features.analytics ? (
+                        <Button variant="outline" onClick={exportCsv} disabled={filtered.length === 0}>
+                            <Download /> Export CSV
+                        </Button>
+                    ) : (
+                        <Button variant="outline" asChild>
+                            <Link href="/dashboard/billing">
+                                <Lock /> Export CSV
+                            </Link>
+                        </Button>
+                    )
+                }
+            />
 
-            <Tabs value={selectedStatus} onValueChange={setSelectedStatus} className="w-full">
-                <TabsList className="grid w-full grid-cols-6">
-                    <TabsTrigger value="all">
-                        All ({filteredOrders.length})
-                    </TabsTrigger>
-                    {ORDER_STATUS.map(status => (
-                        <TabsTrigger key={status} value={status}>
-                            {status.charAt(0) + status.slice(1).toLowerCase()} 
-                            ({ordersByStatus.find(s => s.status === status)?.orders.length || 0})
-                        </TabsTrigger>
-                    ))}
-                </TabsList>
-            </Tabs>
-
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                {ordersByStatus.map(({ status, icon: Icon, orders, color }) => (
-                    <motion.div key={status} variants={item}>
-                        <Card className="bg-card border">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="flex items-center gap-2">
-                                    <Icon className={`h-5 w-5 ${color}`} />
-                                    {status.charAt(0) + status.slice(1).toLowerCase()}
-                                    <Badge variant="secondary" className="ml-auto">
-                                        {orders.length}
-                                    </Badge>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                    <AnimatePresence>
-                        {orders.map(order => (
-                            <motion.div
-                                key={order.id}
-                                layout
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                transition={{ duration: 0.2 }}
-                                className="bg-muted rounded-lg p-4 cursor-pointer hover:bg-muted/80 transition-colors"
-                                                onClick={() => setSelectedOrder(order)}
-                                            >
-                                                <div className="flex items-start justify-between mb-2">
-                                                        <div>
-                                                            <div className="font-semibold">#{order.orderNumber}</div>
-                                                            {order.customerName && (
-                                                                <div className="text-sm text-muted-foreground">{order.customerName}</div>
-                                                            )}
-                                                            {order.tableNumber && (
-                                                                <div className="text-xs text-muted-foreground">Table {order.tableNumber}</div>
-                                                            )}
-                                                        </div>
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem onClick={() => setSelectedOrder(order)}>
-                                                                <Eye className="h-4 w-4 mr-2" />
-                                                                View Details
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuSeparator className="bg-zinc-700" />
-                                                            {status === 'PENDING' && (
-                                                                    <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'PREPARING')}>
-                                                                    <ChefHat className="h-4 w-4 mr-2" />
-                                                                    Start Preparing
-                                                                </DropdownMenuItem>
-                                                            )}
-                                                            {status === 'PREPARING' && (
-                                                                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'READY')} className="text-white">
-                                                                    <Package className="h-4 w-4 mr-2" />
-                                                                    Mark Ready
-                                                                </DropdownMenuItem>
-                                                            )}
-                                                            {status === 'READY' && (
-                                                                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'SERVED')} className="text-white">
-                                                                    <Check className="h-4 w-4 mr-2" />
-                                                                    Mark Served
-                                                                </DropdownMenuItem>
-                                                            )}
-                                                            {status !== 'CANCELLED' && status !== 'SERVED' && (
-                                                                    <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'CANCELLED')} className="text-destructive">
-                                                                    <X className="h-4 w-4 mr-2" />
-                                                                    Cancel Order
-                                                                </DropdownMenuItem>
-                                                            )}
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <span className="font-semibold">
-                                                        {formatCurrency(order.totalAmount)}
-                                                    </span>
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {formatDateTime(order.createdAt)}
-                                                    </span>
-                                                </div>
-                                            </motion.div>
-                                        ))}
-                                    </AnimatePresence>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </motion.div>
-                ))}
-            </div>
-
-        <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-            <DialogContent className="bg-popover text-foreground max-w-2xl max-h-[80vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-3">
-                            Order #{selectedOrder?.orderNumber}
-                            <Badge className={getStatusColor(selectedOrder?.status || 'PENDING')}>
-                                {selectedOrder?.status}
-                            </Badge>
-                        </DialogTitle>
-                    </DialogHeader>
-                    {selectedOrder && (
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-sm font-medium text-muted-foreground">Customer</label>
-                                    <p className="text-foreground">{selectedOrder.customerName || 'N/A'}</p>
-                                </div>
-                                <div>
-                                    <label className="text-sm font-medium text-muted-foreground">Table</label>
-                                    <p className="text-foreground">{selectedOrder.tableNumber || 'N/A'}</p>
-                                </div>
-                                <div>
-                                    <label className="text-sm font-medium text-muted-foreground">Created</label>
-                                    <p className="text-foreground">{formatDateTime(selectedOrder.createdAt)}</p>
-                                </div>
-                                <div>
-                                    <label className="text-sm font-medium text-muted-foreground">Total</label>
-                                    <p className="text-foreground font-semibold">{formatCurrency(selectedOrder.totalAmount)}</p>
-                                </div>
-                            </div>
-                            
-                            {selectedOrder.notes && (
-                                <div>
-                                <label className="text-sm font-medium text-muted-foreground">Notes</label>
-                                <p className="text-foreground bg-muted p-3 rounded-lg">{selectedOrder.notes}</p>
-                                </div>
+            <div className="flex flex-wrap items-center gap-3">
+                <div role="tablist" aria-label="Status" className="flex gap-1 rounded-lg bg-muted p-1">
+                    {FILTERS.map((f) => (
+                        <button
+                            key={f.id}
+                            role="tab"
+                            type="button"
+                            aria-selected={filter === f.id}
+                            onClick={() => setFilter(f.id)}
+                            className={cn(
+                                "min-h-9 rounded-md px-3.5 text-sm",
+                                filter === f.id ? "bg-card font-medium shadow-sm" : "text-muted-foreground hover:text-foreground"
                             )}
+                        >
+                            {f.label}
+                        </button>
+                    ))}
+                </div>
+                <Select value={range} onValueChange={(v) => setRange(v as keyof typeof RANGES)}>
+                    <SelectTrigger className="h-11 w-36" aria-label="Date range">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="today">Today</SelectItem>
+                        <SelectItem value="7d">Last 7 days</SelectItem>
+                        <SelectItem value="30d">Last 30 days</SelectItem>
+                        <SelectItem value="all">All time</SelectItem>
+                    </SelectContent>
+                </Select>
+                <label className="relative ml-auto w-full sm:w-72">
+                    <span className="sr-only">Search orders</span>
+                    <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Order #, guest, table or dish" className="h-11 pl-9" />
+                </label>
+            </div>
 
-                            <div>
-                                <label className="text-sm font-medium text-muted-foreground mb-3 block">Order Items</label>
-                                <div className="space-y-2">
-                                    {selectedOrder.orderItems.map((item, index: number) => (
-                                        <div key={index} className="flex items-center justify-between bg-muted p-3 rounded-lg">
-                                            <div className="flex items-center gap-3">
-                                                <Badge variant="secondary">{item.quantity}x</Badge>
-                                                <span className="text-foreground">{item.menuItem?.name || 'Item'}</span>
-                                            </div>
-                                            <span className="text-foreground">{formatCurrency(item.price)}</span>
-                                        </div>
-                                    ))}
+            {isLoading ? (
+                <Skeleton className="h-96 rounded-xl" />
+            ) : filtered.length === 0 ? (
+                <EmptyState icon={ReceiptText} title="No orders here" description="Try a different filter or date range." />
+            ) : (
+                <div className="overflow-x-auto rounded-xl border bg-card">
+                    <table className="w-full min-w-[720px] text-sm">
+                        <thead>
+                            <tr className="border-b text-left text-xs text-muted-foreground">
+                                <th className="px-4 py-3 font-medium">Order</th>
+                                <th className="px-4 py-3 font-medium">Time</th>
+                                <th className="px-4 py-3 font-medium">Table / guest</th>
+                                <th className="px-4 py-3 font-medium">Items</th>
+                                <th className="px-4 py-3 font-medium">Status</th>
+                                <th className="px-4 py-3 text-right font-medium">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filtered.map((o) => (
+                                <tr
+                                    key={o.id}
+                                    onClick={() => setSelectedId(o.id)}
+                                    className="cursor-pointer border-b last:border-0 hover:bg-muted/50"
+                                >
+                                    <td className="px-4 py-3">
+                                        <button type="button" className="font-mono font-medium hover:underline" onClick={() => setSelectedId(o.id)}>
+                                            {formatOrderNumber(o.orderNumber)}
+                                        </button>
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                                        {new Date(o.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {o.tableNumber ? `Table ${o.tableNumber}` : "Takeaway"}
+                                        {o.customerName && <span className="text-muted-foreground"> · {o.customerName}</span>}
+                                    </td>
+                                    <td className="max-w-64 truncate px-4 py-3 text-muted-foreground">
+                                        {o.items.map((i) => `${i.quantity}× ${i.name}`).join(", ")}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <StatusBadge status={o.status} />
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-mono">{money(o.totalAmount)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            <Sheet open={!!selected} onOpenChange={(o) => !o && setSelectedId(null)}>
+                <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+                    {selected && (
+                        <>
+                            <SheetHeader>
+                                <SheetTitle className="flex items-center gap-3 font-mono text-xl">
+                                    {formatOrderNumber(selected.orderNumber)} <StatusBadge status={selected.status} />
+                                </SheetTitle>
+                                <SheetDescription>
+                                    {new Date(selected.createdAt).toLocaleString()} · {selected.tableNumber ? `Table ${selected.tableNumber}` : "Takeaway"}
+                                    {selected.createdBy && ` · by ${selected.createdBy}`}
+                                </SheetDescription>
+                            </SheetHeader>
+                            <div className="flex flex-col gap-4 px-4 pb-6">
+                                <div className="rounded-xl border">
+                                    <Receipt order={selected} restaurantName={restaurant.name} money={money} />
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {OPEN.includes(selected.status) && (
+                                        <>
+                                            <Button className="bg-brand text-brand-foreground hover:bg-brand/90" onClick={() => setSettling(true)}>
+                                                Settle bill
+                                            </Button>
+                                            {selected.status !== "SERVED" && (
+                                                <Button variant="outline" onClick={() => setStatus(selected, "SERVED")}>
+                                                    Mark served
+                                                </Button>
+                                            )}
+                                            <Button variant="ghost" className="text-destructive" onClick={() => setStatus(selected, "CANCELLED")}>
+                                                Cancel order
+                                            </Button>
+                                        </>
+                                    )}
+                                    <Button variant="outline" onClick={() => window.print()}>
+                                        <Printer /> Print
+                                    </Button>
                                 </div>
                             </div>
-                        </div>
+                        </>
                     )}
-                </DialogContent>
-            </Dialog>
-        </motion.div>
+                </SheetContent>
+            </Sheet>
+
+            {selected && (
+                <PaymentDialog
+                    open={settling}
+                    onOpenChange={setSettling}
+                    title={`Settle ${formatOrderNumber(selected.orderNumber)}`}
+                    subtotal={selected.subtotal}
+                    amountDue={selected.subtotal + selected.taxAmount}
+                    money={money}
+                    onConfirm={async (payment) => {
+                        try {
+                            await api(`/api/orders/${selected.id}/pay`, { method: "POST", json: payment });
+                            toast.success("Payment recorded");
+                            setSettling(false);
+                            refresh();
+                        } catch (e) {
+                            toast.error(e instanceof Error ? e.message : "Payment failed");
+                            throw e;
+                        }
+                    }}
+                />
+            )}
+        </div>
     );
 }

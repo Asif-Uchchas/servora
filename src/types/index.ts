@@ -1,64 +1,61 @@
-import { Role, OrderStatus, ReservationStatus, DiscountType, TransactionType } from "@prisma/client";
+import type {
+    Role,
+    OrderStatus,
+    ReservationStatus,
+    DiscountType,
+    TransactionType,
+    TableStatus,
+    PaymentMethod,
+} from "@prisma/client";
+import type { SerializedOrder } from "@/lib/orders";
+import type { Feature } from "@/lib/plans";
 
-export type { Role, OrderStatus, ReservationStatus, DiscountType, TransactionType };
+export type { Role, OrderStatus, ReservationStatus, DiscountType, TransactionType, TableStatus, PaymentMethod };
+
+/** Shape returned by /api/orders and friends. */
+export type Order = SerializedOrder;
+export type OrderLine = SerializedOrder["items"][number];
 
 export interface DashboardStats {
-    totalRevenue: number;
-    todayRevenue: number;
-    totalOrders: number;
-    todayOrders: number;
-    activeReservations: number;
-    lowStockItems: number;
-    popularItems: PopularItem[];
-    revenueData: RevenueDataPoint[];
-    recentOrders: OrderWithItems[];
-    lowStockAlerts: LowStockAlert[];
+    currency: string;
+    today: {
+        revenue: number;
+        revenueChange: number | null;
+        orders: number;
+        ordersChange: number | null;
+        avgTicket: number;
+        avgTicketChange: number | null;
+        covers: number;
+        reservations: number;
+    };
+    weekRevenue: number;
+    revenueData: { date: string; revenue: number; orders: number }[];
+    kitchenCount: number;
+    liveOrders: Order[];
+    topItems: { id: string; name: string; image: string | null; quantity: number }[];
+    lowStock: { id: string; name: string; quantity: number; unit: string; minimumQuantity: number }[];
+    features: Record<Feature, boolean>;
 }
 
-export interface PopularItem {
+export interface Discount {
+    id: string;
+    discountType: DiscountType;
+    discountValue: number;
+    startDate: string;
+    endDate: string;
+    isActive: boolean;
+}
+
+export interface MenuCategory {
     id: string;
     name: string;
-    image: string | null;
-    totalOrders: number;
-    revenue: number;
+    description: string | null;
+    displayOrder: number;
+    isActive: boolean;
+    _count?: { menuItems: number };
 }
 
-export interface RevenueDataPoint {
-    date: string;
-    revenue: number;
-    orders: number;
-}
-
-export interface OrderWithItems {
-    id: string;
-    orderNumber: number;
-    tableNumber: string | null;
-    customerName: string | null;
-    status: OrderStatus;
-    totalAmount: number;
-    notes: string | null;
-    createdAt: Date;
-    orderItems: {
-        id: string;
-        quantity: number;
-        price: number;
-        menuItem: {
-            id: string;
-            name: string;
-            image: string | null;
-        };
-    }[];
-}
-
-export interface LowStockAlert {
-    id: string;
-    name: string;
-    quantity: number;
-    unit: string;
-    minimumQuantity: number;
-}
-
-export interface MenuItemWithRelations {
+export interface MenuItem {
     id: string;
     name: string;
     description: string | null;
@@ -72,28 +69,65 @@ export interface MenuItemWithRelations {
     isAvailable: boolean;
     isFeatured: boolean;
     categoryId: string;
-    restaurantId: string;
-    createdAt: Date;
-    category: {
-        id: string;
-        name: string;
-    };
-    discounts: {
-        id: string;
-        discountType: DiscountType;
-        discountValue: number;
-        startDate: Date;
-        endDate: Date;
-        isActive: boolean;
-    }[];
-    _count?: {
-        orderItems: number;
-    };
+    category: { id: string; name: string };
+    discounts: Discount[];
+    _count?: { orderItems: number };
 }
 
-export interface NavItem {
+export interface DiningTable {
+    id: string;
+    label: string;
+    capacity: number;
+    area: string | null;
+    status: TableStatus;
+    orders?: { id: string; orderNumber: number; totalAmount: number; createdAt: string; status: OrderStatus }[];
+}
+
+export interface Reservation {
+    id: string;
+    customerName: string;
+    phone: string | null;
+    email: string | null;
+    guests: number;
+    reservationTime: string;
+    tableNumber: string | null;
+    status: ReservationStatus;
+    notes: string | null;
+    createdAt: string;
+}
+
+export interface InventoryTransaction {
+    id: string;
+    type: TransactionType;
+    quantity: number;
+    notes: string | null;
+    createdAt: string;
+}
+
+export interface InventoryItem {
+    id: string;
+    name: string;
+    quantity: number;
+    unit: string;
+    minimumQuantity: number;
+    costPerUnit: number;
+    transactions: InventoryTransaction[];
+}
+
+export interface TeamMember {
+    id: string;
+    name: string;
+    email: string;
+    role: Role;
+    phone: string | null;
+    createdAt: string;
+}
+
+export interface NotificationItem {
+    id: string;
+    kind: "order" | "reservation" | "stock";
     title: string;
+    detail: string;
     href: string;
-    icon: string;
-    roles?: Role[];
+    at: string;
 }

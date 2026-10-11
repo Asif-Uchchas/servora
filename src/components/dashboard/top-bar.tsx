@@ -1,90 +1,151 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
-import { Bell, Search, Settings, User, LogOut } from "lucide-react";
+import { useState } from "react";
+import Link from "next/link";
+import { signOut } from "next-auth/react";
+import { useQuery } from "@tanstack/react-query";
+import { formatDistanceToNow } from "date-fns";
+import { Bell, CalendarDays, LogOut, Menu, Package, ReceiptText, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useWorkspace } from "@/components/workspace-provider";
+import { getJson } from "@/lib/fetcher";
+import { getInitials } from "@/lib/utils";
+import type { NotificationItem } from "@/types";
+import { SidebarContent } from "./sidebar";
+import { CommandPalette } from "./command-palette";
 
-export function TopBar() {
-    const { data: session } = useSession();
+const KIND_ICON = { order: ReceiptText, reservation: CalendarDays, stock: Package };
 
-    const userInitials = session?.user?.name
-        ?.split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase() || "U";
+function Notifications() {
+    const { data } = useQuery({
+        queryKey: ["/api/notifications"],
+        queryFn: getJson<{ items: NotificationItem[]; count: number }>("/api/notifications"),
+        refetchInterval: 30_000,
+    });
+    const count = data?.count ?? 0;
 
     return (
-        <header className="sticky top-0 z-30 h-16 border-b bg-background/80 backdrop-blur-xl">
-            <div className="flex items-center justify-between h-full px-6">
-                {/* Left - Search */}
-                <div className="flex items-center gap-4 flex-1 max-w-md">
-                    <div className="relative w-full">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                        <Input
-                            placeholder="Search anything..."
-                            className="pl-10 h-10 bg-muted/50 border text-foreground placeholder:text-muted-foreground rounded-xl focus:border-primary/50 focus:ring-primary/20"
-                        />
-                        <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] bg-muted rounded px-1.5 py-0.5 font-mono">
-                            ⌘K
-                        </kbd>
-                    </div>
-                </div>
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative size-10 rounded-lg" aria-label={`Notifications (${count})`}>
+                    <Bell className="size-5" />
+                    {count > 0 && (
+                        <span className="absolute top-1.5 right-1.5 flex min-w-4 items-center justify-center rounded-full bg-brand px-1 font-mono text-[10px] font-semibold text-brand-foreground">
+                            {count > 9 ? "9+" : count}
+                        </span>
+                    )}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 p-0">
+                <div className="border-b px-4 py-3 text-sm font-semibold">Needs attention</div>
+                {count === 0 ? (
+                    <p className="px-4 py-8 text-center text-sm text-muted-foreground">All caught up.</p>
+                ) : (
+                    <ul className="max-h-96 overflow-y-auto">
+                        {data!.items.map((n) => {
+                            const Icon = KIND_ICON[n.kind];
+                            return (
+                                <li key={n.id}>
+                                    <Link href={n.href} className="flex gap-3 px-4 py-3 hover:bg-muted">
+                                        <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                        <span className="min-w-0 flex-1">
+                                            <span className="block text-sm font-medium">{n.title}</span>
+                                            <span className="block truncate text-xs text-muted-foreground">
+                                                {n.kind === "reservation" ? n.detail.split(" · ")[0] : n.detail} ·{" "}
+                                                {formatDistanceToNow(new Date(n.at), { addSuffix: true })}
+                                            </span>
+                                        </span>
+                                    </Link>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+            </PopoverContent>
+        </Popover>
+    );
+}
 
-                {/* Right - Actions */}
-                <div className="flex items-center gap-2">
+export function TopBar() {
+    const { user, restaurant } = useWorkspace();
+    const [mobileOpen, setMobileOpen] = useState(false);
+    const [paletteOpen, setPaletteOpen] = useState(false);
+
+    return (
+        <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur-xl">
+            <div className="flex h-16 items-center gap-3 px-4 sm:px-6 lg:px-8">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-10 lg:hidden"
+                    aria-label="Open navigation"
+                    onClick={() => setMobileOpen(true)}
+                >
+                    <Menu className="size-5" />
+                </Button>
+                <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+                    <SheetContent side="left" className="w-72 border-0 p-0" showCloseButton={false}>
+                        <SheetTitle className="sr-only">Navigation</SheetTitle>
+                        <SidebarContent onNavigate={() => setMobileOpen(false)} />
+                    </SheetContent>
+                </Sheet>
+
+                <button
+                    type="button"
+                    onClick={() => setPaletteOpen(true)}
+                    className="flex h-10 w-full max-w-sm items-center gap-2.5 rounded-lg border bg-card px-3 text-sm text-muted-foreground transition-colors hover:border-input"
+                >
+                    <Search className="size-4" />
+                    <span className="flex-1 text-left">Search or jump to…</span>
+                    <kbd className="hidden rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] sm:inline">Ctrl K</kbd>
+                </button>
+                <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+
+                <div className="ml-auto flex items-center gap-1">
                     <ThemeToggle />
-
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-xl relative"
-                    >
-                        <Bell className="w-5 h-5" />
-                        <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
-                    </Button>
-
-                    <div className="w-px h-8 bg-border mx-1" />
-
+                    <Notifications />
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-10 gap-3 px-3 hover:bg-muted/50 rounded-xl">
-                                <Avatar className="h-8 w-8">
-                                    <AvatarFallback className="bg-gradient-to-br from-primary to-[#B8962E] text-white text-xs font-bold">
-                                        {userInitials}
+                            <Button variant="ghost" className="h-10 gap-2.5 rounded-lg px-2" aria-label="Account menu">
+                                <Avatar className="size-8">
+                                    <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">
+                                        {getInitials(user.name)}
                                     </AvatarFallback>
                                 </Avatar>
-                                <div className="hidden md:block text-left">
-                                    <p className="text-sm font-medium">{session?.user?.name || "User"}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {(session?.user as any)?.restaurantName || "Restaurant"}
-                                    </p>
-                                </div>
+                                <span className="hidden text-left md:block">
+                                    <span className="block text-sm leading-tight font-medium">{user.name}</span>
+                                    <span className="block text-xs leading-tight text-muted-foreground capitalize">
+                                        {user.role.toLowerCase()}
+                                    </span>
+                                </span>
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56 bg-background border text-foreground">
-                            <DropdownMenuItem className="text-muted-foreground focus:bg-muted focus:text-foreground cursor-pointer">
-                                <a href="/dashboard/settings" className="flex items-center w-full">
-                                    <Settings className="w-4 h-4 mr-2" />
-                                    Settings
-                                </a>
+                        <DropdownMenuContent align="end" className="w-60">
+                            <DropdownMenuLabel className="font-normal">
+                                <span className="block truncate text-sm font-medium">{user.email}</span>
+                                <span className="block truncate text-xs text-muted-foreground">{restaurant.name}</span>
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem asChild>
+                                <Link href="/dashboard/settings">
+                                    <Settings /> Settings
+                                </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator className="bg-border" />
-                            <DropdownMenuItem 
-                                className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
-                                onClick={() => signOut({ callbackUrl: "/login" })}
-                            >
-                                <LogOut className="w-4 h-4 mr-2" />
-                                Sign out
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem variant="destructive" onSelect={() => signOut({ callbackUrl: "/login" })}>
+                                <LogOut /> Sign out
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

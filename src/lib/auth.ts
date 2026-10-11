@@ -2,7 +2,13 @@ import NextAuth from "next-auth";
 import { authConfig } from "./auth.config";
 import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
+import { z } from "zod";
 import { db } from "@/lib/db";
+
+const credentialsSchema = z.object({
+    email: z.string().trim().toLowerCase().email(),
+    password: z.string().min(1),
+});
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     ...authConfig,
@@ -14,19 +20,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 password: { label: "Password", type: "password" },
             },
             async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password) {
-                    return null;
-                }
+                const parsed = credentialsSchema.safeParse(credentials);
+                if (!parsed.success) return null;
 
                 const user = await db.user.findUnique({
-                    where: { email: credentials.email as string },
-                    include: { restaurant: true },
+                    where: { email: parsed.data.email },
+                    include: { restaurant: { select: { name: true, slug: true } } },
                 });
-
                 if (!user) return null;
 
-                const isValid = await compare(credentials.password as string, user.passwordHash);
-
+                const isValid = await compare(parsed.data.password, user.passwordHash);
                 if (!isValid) return null;
 
                 return {
@@ -36,6 +39,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     role: user.role,
                     restaurantId: user.restaurantId,
                     restaurantName: user.restaurant.name,
+                    restaurantSlug: user.restaurant.slug,
                     image: user.avatar,
                 };
             },

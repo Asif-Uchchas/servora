@@ -1,78 +1,49 @@
-import { NextRequest, NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { db } from "@/lib/db";
+import { ApiError, json, parseBody, withErrors } from "@/lib/api";
+import { registerSchema } from "@/lib/validations";
+import { uniqueRestaurantSlug } from "@/lib/slug";
+import { TRIAL_DAYS } from "@/lib/plans";
 
-export async function POST(req: NextRequest) {
-    try {
-        const body = await req.json();
-        const { name, email, password, restaurantName } = body;
+const STARTER_CATEGORIES = ["Starters", "Mains", "Desserts", "Drinks"];
+const STARTER_TABLES = ["T1", "T2", "T3", "T4", "T5", "T6"];
 
-        // Validate input
-        if (!name || !email || !password || !restaurantName) {
-            return NextResponse.json(
-                { error: "Missing required fields" },
-                { status: 400 }
-            );
-        }
+// POST /api/auth/register — create a workspace: restaurant + admin user, on a Pro trial.
+export const POST = withErrors(async (req) => {
+    const input = await parseBody(req, registerSchema);
 
-        // Check if user already exists
-        const existingUser = await db.user.findUnique({
-            where: { email },
-        });
+    const existing = await db.user.findUnique({ where: { email: input.email }, select: { id: true } });
+    if (existing) throw new ApiError(409, "An account with this email already exists");
 
-        if (existingUser) {
-            return NextResponse.json(
-                { error: "User with this email already exists" },
-                { status: 409 }
-            );
-        }
+    const [passwordHash, slug] = await Promise.all([hash(input.password, 12), uniqueRestaurantSlug(input.restaurantName)]);
 
-        // Create Restaurant first
-        const restaurant = await db.restaurant.create({
+    const user = await db.$transaction(async (tx) => {
+        const restaurant = await tx.restaurant.create({
             data: {
-                name: restaurantName,
+                name: input.restaurantName,
+                slug,
+                plan: "PRO",
+                subscriptionStatus: "TRIALING",
+                trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 86_400_000),
+                menuCategories: {
+                    create: STARTER_CATEGORIES.map((name, i) => ({ name, displayOrder: i + 1 })),
+                },
+                tables: {
+                    create: STARTER_TABLES.map((label) => ({ label, capacity: 4, area: "Main room" })),
+                },
             },
         });
-
-        // Hash password
-        const passwordHash = await hash(password, 12);
-
-        // Create User (Admin role by default for new registrations)
-        const user = await db.user.create({
+        return tx.user.create({
             data: {
-                name,
-                email,
+                name: input.name,
+                email: input.email,
                 passwordHash,
                 role: "ADMIN",
                 restaurantId: restaurant.id,
             },
+            select: { id: true, name: true, email: true, role: true, restaurantId: true },
         });
+    });
 
-        // Create default Menu Categories properly
-        await db.menuCategory.createMany({
-            data: [
-                { name: "Appetizers", displayOrder: 1, restaurantId: restaurant.id },
-                { name: "Main Course", displayOrder: 2, restaurantId: restaurant.id },
-                { name: "Desserts", displayOrder: 3, restaurantId: restaurant.id },
-                { name: "Beverages", displayOrder: 4, restaurantId: restaurant.id },
-            ],
-        });
-
-        // We don't return the password hash
-        const { passwordHash: _, ...userWithoutPassword } = user;
-
-        return NextResponse.json(
-            {
-                user: userWithoutPassword,
-                message: "User registered successfully",
-            },
-            { status: 201 }
-        );
-    } catch (error) {
-        console.error("Registration error:", error);
-        return NextResponse.json(
-            { error: "Internal server error" },
-            { status: 500 }
-        );
-    }
-}
+    return json({ user, message: "Workspace created" }, 201);
+});

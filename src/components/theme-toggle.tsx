@@ -3,37 +3,22 @@
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 
-export function ThemeToggle() {
-    const { theme, setTheme } = useTheme();
-    const [mounted, setMounted] = useState(false);
+export function ThemeToggle({ className }: { className?: string }) {
+    const { resolvedTheme, setTheme } = useTheme();
 
-    // useEffect only runs on the client, so now we can safely show the UI
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    if (!mounted) {
-        return (
-            <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-xl"
-            >
-                <Sun className="w-5 h-5" />
-            </Button>
-        );
-    }
-
+    // Both icons render; CSS shows the right one, so there's no hydration flash or mount effect.
     return (
         <Button
             variant="ghost"
             size="icon"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-xl"
+            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+            className={cn("size-10 rounded-lg", className)}
+            aria-label="Toggle dark mode"
         >
-            {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            <Sun className="hidden size-5 dark:block" />
+            <Moon className="size-5 dark:hidden" />
         </Button>
     );
 }
